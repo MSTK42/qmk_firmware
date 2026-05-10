@@ -10,9 +10,11 @@
 static uint16_t chord[MEJIRO_MAX_KEYS];
 static uint8_t  chord_len = 0;
 static uint8_t  down_count = 0;
+static uint8_t  prev_down_count = 0;
 static bool     chord_active = false;
 static bool     should_send_passthrough = false;  // 変換失敗時のパススルーフラグ
 static bool     last_output_was_space = false;    // 直近に出力した文字がスペースかを記録
+bool            mejiro_first_up_chord_send = false;
 
 #define HISTORY_SIZE 20
 static char     history_outputs[HISTORY_SIZE][64];
@@ -50,7 +52,6 @@ bool is_stn_key(uint16_t kc) {
 
 static void reset_chord(void) {
     chord_len = 0;
-    down_count = 0;
     chord_active = false;
     should_send_passthrough = false;
 }
@@ -672,17 +673,27 @@ static void convert_and_send(void) {
 }
 
 void mejiro_on_press(uint16_t kc) {
-    if (!chord_active) chord_active = true;
-    append_kc(kc);
     down_count++;
+    if (down_count > prev_down_count) {
+        if (!chord_active) chord_active = true;
+        append_kc(kc);
+    }
+    prev_down_count = down_count;
 }
 
 void mejiro_on_release(uint16_t kc) {
+    (void)kc;
     if (down_count > 0) down_count--;
-    if (chord_active && down_count == 0) {
+
+    bool should_commit = mejiro_first_up_chord_send
+                           ? (down_count < prev_down_count)
+                           : (down_count == 0 && prev_down_count > 0);
+
+    if (chord_active && should_commit && chord_len > 0) {
         convert_and_send();
         reset_chord();
     }
+    prev_down_count = down_count;
 }
 
 bool mejiro_should_send_passthrough(void) {
