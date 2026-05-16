@@ -51,6 +51,7 @@ class PresetBuilderConfig:
     description: str
     list_format: Callable[[dict[str, str]], str]
     rewrite_rules: tuple[RewriteRule, ...]
+    output_subdir: str = "."
 
     @property
     def keymap_path(self) -> Path:
@@ -171,7 +172,9 @@ def build_preset(
             check=True,
         )
         artifact = find_built_artifact(repo_root, config.build_stem, started_at)
-        renamed_artifact = repo_root / f"{preset['firmware_name']}{artifact.suffix}"
+        destination_dir = repo_root / config.output_subdir
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        renamed_artifact = destination_dir / f"{preset['firmware_name']}{artifact.suffix}"
         artifact.replace(renamed_artifact)
         return renamed_artifact
     finally:

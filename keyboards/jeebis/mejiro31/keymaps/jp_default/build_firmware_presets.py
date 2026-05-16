@@ -55,6 +55,7 @@ CONFIG = PresetBuilderConfig(
             error_message="Could not rewrite alt_jp_layout in keymap.c.",
         ),
     ),
+    output_subdir=".build/export",
 )
 
 
