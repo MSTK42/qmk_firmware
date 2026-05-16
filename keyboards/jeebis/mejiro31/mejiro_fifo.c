@@ -365,17 +365,19 @@ static void convert_and_send(void) {
     }
 
     // マクロ処理（Plover互換）
-    bool left_has_conso_or_vowel = (bits & 0xFF) != 0;
-    bool left_has_particle = (bits & ((1UL << 8) | (1UL << 9) | (1UL << 10))) != 0;
+    // 左手は bit0 が '#' なので、子音/母音判定では除外する
+    bool left_has_conso_or_vowel = (bits & (0xFFUL << 1)) != 0;
+    // 左粒子キーは n/t/k (= bit9/10/11)
+    bool left_has_particle = (bits & ((1UL << 9) | (1UL << 10) | (1UL << 11))) != 0;
     bool right_has_conso_or_vowel = (bits & (0xFFUL << 12)) != 0;
     bool right_has_particle = (bits & ((1UL << 20) | (1UL << 21) | (1UL << 22))) != 0;
     bool pure_left_particle = (!left_has_conso_or_vowel && left_has_particle && !right_has_conso_or_vowel && !right_has_particle);
 
     char left_particle_key[8] = {0};
     uint8_t lp = 0;
-    if (bits & (1UL << 8)) left_particle_key[lp++] = 'n';
-    if (bits & (1UL << 9)) left_particle_key[lp++] = 't';
-    if (bits & (1UL << 10)) left_particle_key[lp++] = 'k';
+    if (bits & (1UL << 9)) left_particle_key[lp++] = 'n';
+    if (bits & (1UL << 10)) left_particle_key[lp++] = 't';
+    if (bits & (1UL << 11)) left_particle_key[lp++] = 'k';
     left_particle_key[lp] = '\0';
 
     int macro_idx = macro_key_to_index(left_particle_key);
@@ -781,9 +783,10 @@ void mejiro_reset_state(void) {
     down_count = 0;
     prev_down_count = 0;
     last_output_was_space = false;
+
+    // Keep saved macros across steno mode exits, but stop any in-progress recording.
     recording_macro_order_len = 0;
     for (uint8_t i = 0; i < MACRO_KEY_COUNT; i++) {
-        macro_values[i][0] = '\0';
         active_recording_macros[i] = false;
     }
 }

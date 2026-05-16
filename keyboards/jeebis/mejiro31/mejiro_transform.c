@@ -501,6 +501,11 @@ static const char *get_second_sound(const char *particle) {
     return "";
 }
 
+static bool is_extra_sound_only_stroke(const char *conso, const char *vowel) {
+    return (strlen(conso) == 0 && strlen(vowel) == 0) ||
+           (strcmp(conso, "STN") == 0 && strlen(vowel) == 0);
+}
+
 
 // 子音・母音・助詞から、かな文字列を生成する共通関数
 // include_extra_sound: 追加音を含めるかどうか（左+助詞パターンではfalse）
@@ -509,7 +514,7 @@ static void convert_to_kana(const char *conso, const char *vowel, const char *pa
     out[0] = '\0';  // 初期化
 
     // STN+母音なしは「何も出力しない」特例（追加音のみ必要なケース）
-    if (strlen(conso) > 0 && strlen(vowel) == 0 && strcmp(conso, "STN") == 0) {
+    if (is_extra_sound_only_stroke(conso, vowel) && strcmp(conso, "STN") == 0) {
         if (include_extra_sound) {
             const char *extra = get_second_sound(particle_str);
             strcpy(out, extra);
@@ -688,8 +693,8 @@ static void convert_to_kana(const char *conso, const char *vowel, const char *pa
 static void convert_to_syllable(const char *conso, const char *vowel, const char *particle_str, char *out) {
     out[0] = '\0';
 
-    // STN+母音なしは「何も出力しない」特例（追加音のみ必要なケース）
-    if (strlen(conso) > 0 && strlen(vowel) == 0 && strcmp(conso, "STN") == 0) {
+    // particle-only / STN+母音なしは追加音のみ（Plover版と同等）
+    if (is_extra_sound_only_stroke(conso, vowel)) {
         const char *extra = get_second_sound(particle_str);
         strcpy(out, extra);
         return;
@@ -1037,13 +1042,14 @@ mejiro_result_t mejiro_transform(const char *mejiro_id) {
     // 左側の仮名を生成（動詞語幹用）
     if (strlen(l_conso) > 0 || strlen(l_vowel) > 0) {
         convert_to_kana(l_conso, l_vowel, "", false, left_kana_temp);
-        convert_to_syllable(l_conso, l_vowel, l_particle_str, left_syllable_temp);
     }
+    // 音節は常に生成（particle-onlyを含む）
+    convert_to_syllable(l_conso, l_vowel, l_particle_str, left_syllable_temp);
     // 右側の仮名を生成（動詞語幹用）
     if (strlen(r_conso) > 0 || strlen(r_vowel) > 0) {
         convert_to_kana(r_conso, r_vowel, "", false, right_kana_temp);
-        convert_to_syllable(r_conso, r_vowel, r_particle_str, right_syllable_temp);
     }
+    convert_to_syllable(r_conso, r_vowel, r_particle_str, right_syllable_temp);
 
     verb_result_t verb_result = mejiro_verb_conjugate(
         l_conso, l_vowel, l_particle_str,
