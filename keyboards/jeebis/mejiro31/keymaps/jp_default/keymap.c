@@ -50,6 +50,7 @@ enum custom_keycodes {
 #define MT_ENT KC_RSFT
 #define MT_TGL LT(_NUMBER, KC_F24)
 #define MO_FUN MO(_FUNCTION)
+#define MY_QUES RSFT(KC_SLSH)
 
 /*---------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------ユーザーカスタマイズ----------------------------------------*/
@@ -527,7 +528,6 @@ const combo_pair_t combo_pairs[] PROGMEM = {
     {KC_R,    KC_T,    KC_ESC,  _QWERTY_SHIFT},
     {KC_N,    KC_M,    KC_BSPC, _QWERTY_SHIFT},
     {KC_Y,    KC_U,    KC_DEL,  _QWERTY_SHIFT},
-    {KC_EXLM, KC_QUES, KC_HASH, _QWERTY_SHIFT},
 
     {KC_1,    KC_7,    KC_4,     _NUMBER},
     {KC_2,    KC_8,    KC_5,     _NUMBER},
@@ -538,6 +538,7 @@ const combo_pair_t combo_pairs[] PROGMEM = {
     {KC_3,    KC_MINS, KC_ESC,   _NUMBER},
     {KC_PGDN, KC_LEFT, KC_BSPC,  _NUMBER},
     {KC_PGUP, KC_HOME, KC_DEL,   _NUMBER},
+    {KC_AMPR, KC_PIPE, KC_HASH,  _NUMBER},
     {KC_PERC, KC_DLR,  KC_SLSH,  _NUMBER_SHIFT},
     {KC_LCBR, KC_RCBR, KC_ASTR,  _NUMBER_SHIFT},
     {KC_LBRC, KC_RBRC, KC_EQL,   _NUMBER_SHIFT},
@@ -547,7 +548,6 @@ const combo_pair_t combo_pairs[] PROGMEM = {
     {KC_LPRN, KC_LABK, KC_ESC,   _NUMBER_SHIFT},
     {KC_PGDN, KC_LEFT, KC_BSPC,  _NUMBER_SHIFT},
     {KC_PGUP, KC_HOME, KC_DEL,   _NUMBER_SHIFT},
-    {KC_AMPR, KC_PIPE, KC_HASH,  _NUMBER_SHIFT},
 };
 uint8_t combo_pair_count = sizeof(combo_pairs) / sizeof(combo_pairs[0]);
 
@@ -608,7 +608,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         ┌───────────┐             ┌───────────┐
     //                         │Space/Shift│             │Enter/Shift│
     //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │ ALT │ CTL │   │Layer│   │  !  #  ?  │
+    //                         │ ALT │ CTL │   │Layer│   │  !  │  ?  │
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     [_QWERTY] = LAYOUT(
         KC_GRV, KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_MINS,
@@ -620,7 +620,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_TILD,KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_UNDS,
         KC_LGUI,KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_LABK, KC_RABK,KC_QUES, KC_PIPE,
                                   MT_SPC ,          MT_TGL, MT_ENT,
-                                  KC_LALT, KC_LCTL,         KC_EXLM, KC_QUES
+                                  KC_LALT, KC_LCTL,         KC_EXLM, MY_QUES
     ),
     // NUMBER
     // ┌─────┬─────┬─────┬─────┬─────┬─────┐             ┌─────┬─────┬─────┬─────┬─────┬─────┐
@@ -631,7 +631,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         ┌───────────┐             ┌───────────┐
     //                         │Space/Shift│             │Enter/Shift│
     //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │ ALT │ CTL │   │Layer│   │  &  │  |  │
+    //                         │ ALT │ CTL │   │Layer│   │  &  #  |  │
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     // NUMBER Shifted
     // ┌─────┬─────┬─────┬─────┬─────┬─────┐             ┌─────┬─────┬─────┬─────┬─────┬─────┐
@@ -642,7 +642,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         ┌───────────┐             ┌───────────┐
     //                         │Space/Shift│             │Enter/Shift│
     //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │ ALT │ CTL │   │Layer│   │  &  │  |  │
+    //                         │ ALT │ CTL │   │Layer│   │ CTL │ ALT │
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     [_NUMBER] = LAYOUT(
         TG_MJR, KC_DZ,   KC_1,    KC_2,    KC_3,    KC_MINS,          KC_PGUP, KC_HOME, KC_UP,   KC_END,   KC_CAPS, TG_ALT,
