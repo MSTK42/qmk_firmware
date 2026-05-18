@@ -334,18 +334,16 @@ static void refresh_force_qwerty_state(void) {
 
 static void refresh_shift_layer_state(void) {
     uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
-    bool shift_held = ((get_mods() | get_weak_mods() | get_oneshot_mods()) & MOD_MASK_SHIFT) != 0;
+    bool shift_held = lshift_timer > 0 || rshift_timer > 0;
     bool number_shift_shortcut = lshift_timer > 0 && rshift_timer > 0;
 
     if (number_shift_shortcut) {
-        if (active_layer == _QWERTY_SHIFT) {
-            layer_move(_NUMBER_SHIFT);
-        }
+      layer_move(_NUMBER_SHIFT);
     } else if (shift_held) {
-        if (active_layer == _NUMBER) {
-            layer_move(_NUMBER_SHIFT);
-        } else if (active_layer == _QWERTY || !mt_tgl_pressed) {
+        if (!mt_tgl_pressed) {
             layer_move(_QWERTY_SHIFT);
+            default_layer_set((layer_state_t)1UL << _QWERTY);
+            default_layer = _QWERTY;
         }
     } else {
         if (active_layer == _QWERTY_SHIFT) {
@@ -802,15 +800,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             return handle_toggle_on_hold(record, &tg_mjr_state, toggle_mejiro_mode);
         case KC_DZ:
             if (record->event.pressed) {
-                if (shifted) {
-                    tap_code16(is_jis_mode ? JP_LPRN : KC_LPRN);
-                    tap_code16(is_jis_mode ? JP_RPRN : KC_RPRN);
-                    tap_code16_unshifted(KC_LEFT);
-                } else {
-                    dz_timer = timer_read();
-                    dz_delayed = true;
-                    dz_fifo_len_at_press = combo_fifo_len;
-                }
+                dz_timer = timer_read();
+                dz_delayed = true;
+                dz_fifo_len_at_press = combo_fifo_len;
             }
             return false;
         case KC_LSFT:
