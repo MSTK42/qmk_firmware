@@ -36,6 +36,9 @@ enum layer_names {
     _NUMBER,
     _NUMBER_SHIFT,
     _FUNCTION,
+    _O24_NUMBER,
+    _O24_NAV,
+    _O24_SYSTEM,
 };
 
 enum custom_keycodes {
@@ -51,6 +54,10 @@ enum custom_keycodes {
 #define MT_TGL LT(_NUMBER, KC_F24)
 #define MO_FUN MO(_FUNCTION)
 #define MY_QUES RSFT(KC_SLSH)
+#define O24_KEY1 LT(_O24_NUMBER, KC_BSPC)
+#define O24_KEY2 LCTL_T(KC_ENT)
+#define O24_KEY3 LT(_O24_NAV, KC_SPC)
+#define O24_KEY4 LCTL_T(KC_TAB)
 
 /*---------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------ユーザーカスタマイズ----------------------------------------*/
@@ -451,6 +458,45 @@ bool combo_fifo_custom_action(uint16_t keycode, bool shifted, bool needs_unshift
     }
 }
 
+static bool combo_pair_matches(combo_pair_t pair, uint16_t a, uint16_t b, uint8_t layer) {
+    return pair.layer == layer &&
+           ((pair.a == a && pair.b == b) || (pair.a == b && pair.b == a));
+}
+
+static uint16_t o24_combo_hold_modifier(combo_pair_t pair) {
+    if (combo_pair_matches(pair, KC_R, KC_V, _QWERTY)) return KC_LSFT;    // F + V
+    if (combo_pair_matches(pair, KC_U, KC_M, _QWERTY)) return KC_LSFT;    // W + D
+    if (combo_pair_matches(pair, KC_E, KC_C, _QWERTY)) return KC_LALT;    // U + C
+    if (combo_pair_matches(pair, KC_I, KC_COMM, _QWERTY)) return KC_LALT; // R + M
+    if (combo_pair_matches(pair, KC_W, KC_X, _QWERTY)) return KC_LGUI;    // L + X
+    if (combo_pair_matches(pair, KC_O, KC_DOT, _QWERTY)) return KC_LGUI;  // Y + J
+    return KC_NO;
+}
+
+bool combo_fifo_custom_combo_action(combo_pair_t pair, uint16_t keycode, bool shifted, bool needs_unshift, bool is_hold) {
+    (void)keycode;
+    (void)shifted;
+    (void)needs_unshift;
+
+    if (!is_hold) return false;
+
+    uint16_t modifier = o24_combo_hold_modifier(pair);
+    if (modifier == KC_NO) return false;
+
+    hold_state.keycode = modifier;
+    hold_state.time_confirmed = timer_read();
+    hold_state.is_held = true;
+    hold_state.source_key_a = pair.a;
+    hold_state.source_key_b = pair.b;
+    hold_state.source_a_pressed = true;
+    hold_state.source_b_pressed = true;
+    hold_state.shift_held = false;
+    hold_state.shift_injected = false;
+    hold_state.modifier_hold = true;
+    register_code16(modifier);
+    return true;
+}
+
 static void toggle_jis_mode(void) {
     is_jis_mode = !is_jis_mode;
     user_config.jis_mode = is_jis_mode;
@@ -495,37 +541,12 @@ static bool handle_toggle_on_hold(keyrecord_t *record, toggle_hold_state_t *stat
 // コンボ定義（順不同）
 const combo_pair_t combo_pairs[] PROGMEM = {
 
-    {KC_Q,    KC_Z,    KC_A,    _QWERTY},
     {KC_W,    KC_X,    KC_S,    _QWERTY},
     {KC_E,    KC_C,    KC_D,    _QWERTY},
     {KC_R,    KC_V,    KC_F,    _QWERTY},
-    {KC_T,    KC_B,    KC_G,    _QWERTY},
-    {KC_Y,    KC_N,    KC_H,    _QWERTY},
     {KC_U,    KC_M,    KC_J,    _QWERTY},
     {KC_I,    KC_COMM, KC_K,    _QWERTY},
     {KC_O,    KC_DOT,  KC_L,    _QWERTY},
-    {KC_P,    KC_SLSH, KC_SCLN, _QWERTY},
-    {KC_MINS, KC_BSLS, KC_QUOT, _QWERTY},
-    {KC_V,    KC_B,    KC_TAB,  _QWERTY},
-    {KC_R,    KC_T,    KC_ESC,  _QWERTY},
-    {KC_N,    KC_M,    KC_BSPC, _QWERTY},
-    {KC_Y,    KC_U,    KC_DEL,  _QWERTY},
-    {KC_LNG1, KC_LNG2, KC_AT,   _QWERTY},
-    {KC_Q,    KC_Z,    KC_A,    _QWERTY_SHIFT},
-    {KC_W,    KC_X,    KC_S,    _QWERTY_SHIFT},
-    {KC_E,    KC_C,    KC_D,    _QWERTY_SHIFT},
-    {KC_R,    KC_V,    KC_F,    _QWERTY_SHIFT},
-    {KC_T,    KC_B,    KC_G,    _QWERTY_SHIFT},
-    {KC_Y,    KC_N,    KC_H,    _QWERTY_SHIFT},
-    {KC_U,    KC_M,    KC_J,    _QWERTY_SHIFT},
-    {KC_I,    KC_LABK, KC_K,    _QWERTY_SHIFT},
-    {KC_O,    KC_RABK, KC_L,    _QWERTY_SHIFT},
-    {KC_P,    KC_QUES, KC_SCLN, _QWERTY_SHIFT},
-    {KC_UNDS, KC_PIPE, KC_QUOT, _QWERTY_SHIFT},
-    {KC_V,    KC_B,    KC_TAB,  _QWERTY_SHIFT},
-    {KC_R,    KC_T,    KC_ESC,  _QWERTY_SHIFT},
-    {KC_N,    KC_M,    KC_BSPC, _QWERTY_SHIFT},
-    {KC_Y,    KC_U,    KC_DEL,  _QWERTY_SHIFT},
 
     {KC_1,    KC_7,    KC_4,     _NUMBER},
     {KC_2,    KC_8,    KC_5,     _NUMBER},
@@ -611,14 +632,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_QWERTY] = LAYOUT(
         KC_GRV, KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_MINS,
         KC_LGUI,KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_BSLS,
-                                  MT_SPC ,          MT_TGL, MT_ENT,
-                                  KC_LALT, KC_LCTL,         KC_LNG2, KC_LNG1
+                                  KC_NO  ,          MT_TGL, KC_NO,
+                                  O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     [_QWERTY_SHIFT] = LAYOUT(
         KC_TILD,KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_UNDS,
         KC_LGUI,KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_LABK, KC_RABK,KC_QUES, KC_PIPE,
-                                  MT_SPC ,          MT_TGL, MT_ENT,
-                                  KC_LALT, KC_LCTL,         KC_EXLM, MY_QUES
+                                  KC_NO  ,          MT_TGL, KC_NO,
+                                  O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     // NUMBER
     // ┌─────┬─────┬─────┬─────┬─────┬─────┐             ┌─────┬─────┬─────┬─────┬─────┬─────┐
@@ -643,13 +664,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         │ ALT │ CTL │   │Layer│   │ CTL │ ALT │
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     [_NUMBER] = LAYOUT(
-        TG_MJR, KC_DZ,   KC_1,    KC_2,    KC_3,    KC_MINS,          KC_PGUP, KC_HOME, KC_UP,   KC_END,   KC_CAPS, TG_ALT,
+        KC_NO,  KC_DZ,   KC_1,    KC_2,    KC_3,    KC_MINS,          KC_PGUP, KC_HOME, KC_UP,   KC_END,   KC_CAPS, KC_NO,
         KC_LGUI,KC_0,    KC_7,    KC_8,    KC_9,    KC_DOT,           KC_PGDN, KC_LEFT, KC_DOWN, KC_RIGHT, KC_LGUI, MO_FUN,
                                            MT_SPC,           KC_TRNS, MT_ENT,
                                            KC_LALT, KC_LCTL,          KC_AMPR, KC_PIPE
     ),
     [_NUMBER_SHIFT] = LAYOUT(
-        TG_MJR, KC_PERC, KC_LCBR, KC_LBRC, KC_LPRN, KC_LABK,          KC_PGUP, KC_HOME, KC_UP,   KC_END,   KC_CAPS, TG_ALT,
+        KC_NO,  KC_PERC, KC_LCBR, KC_LBRC, KC_LPRN, KC_LABK,          KC_PGUP, KC_HOME, KC_UP,   KC_END,   KC_CAPS, KC_NO,
         KC_LGUI,KC_DLR,  KC_RCBR, KC_RBRC, KC_RPRN, KC_RABK,          KC_PGDN, KC_LEFT, KC_DOWN, KC_RIGHT, KC_LGUI, MO_FUN,
                                            MT_SPC,           KC_TRNS, MT_ENT,
                                            KC_LALT, KC_LCTL,          KC_LCTL, KC_LALT
@@ -667,10 +688,28 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     // FUNCTION
     [_FUNCTION] = LAYOUT(
-        TG_JIS, KC_F1, KC_F2, KC_F3, KC_F4,   KC_F5,           KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PSCR, KC_TRNS,
+        KC_NO,  KC_F1, KC_F2, KC_F3, KC_F4,   KC_F5,           KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PSCR, KC_TRNS,
         KC_LGUI,KC_F6, KC_F7, KC_F8, KC_F9,   KC_F10,          KC_BRID, KC_MPRV, KC_MPLY, KC_MNXT, KC_LGUI, KC_TRNS,
                                      KC_TRNS,         KC_TRNS, KC_TRNS,
                                      KC_TRNS, KC_TRNS,         KC_F11,  KC_F12
+    ),
+    [_O24_NUMBER] = LAYOUT(
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                                      KC_TRNS,         KC_TRNS, KC_TRNS,
+                                      KC_TRNS, KC_TRNS,         KC_TRNS, KC_TRNS
+    ),
+    [_O24_NAV] = LAYOUT(
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                                      KC_TRNS,         KC_TRNS, KC_TRNS,
+                                      KC_TRNS, KC_TRNS,         KC_TRNS, KC_TRNS
+    ),
+    [_O24_SYSTEM] = LAYOUT(
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+                                      KC_TRNS,         KC_TRNS, KC_TRNS,
+                                      KC_TRNS, KC_TRNS,         KC_TRNS, KC_TRNS
     ),
 };
 

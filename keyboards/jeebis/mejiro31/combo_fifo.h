@@ -48,6 +48,7 @@ typedef struct {
     bool     source_b_pressed;
     bool     shift_held;  // shift を含めてホールドしているかどうか
     bool     shift_injected;  // 物理Shiftなしで一時的に追加したか
+    bool     modifier_hold;  // 通常キーではなく修飾キーをホールドしているか
 } hold_state_t;
 
 // グローバル変数の宣言（combo_fifo.cで実装）
@@ -119,6 +120,7 @@ typedef struct {
 typedef transformed_key_t (*key_transform_extended_fn_t)(uint16_t kc, bool shifted, uint8_t layer);
 
 bool combo_fifo_custom_action(uint16_t keycode, bool shifted, bool needs_unshift, bool is_hold);
+bool combo_fifo_custom_combo_action(combo_pair_t pair, uint16_t keycode, bool shifted, bool needs_unshift, bool is_hold);
 
 /**
  * コンボ定義を検索する関数
@@ -156,7 +158,10 @@ static inline void fifo_remove(uint8_t idx) {
  */
 static inline void clear_hold_state(void) {
     if (hold_state.is_held) {
-        if (hold_state.shift_held) {
+        if (hold_state.modifier_hold) {
+            unregister_code16(hold_state.keycode);
+            hold_state.modifier_hold = false;
+        } else if (hold_state.shift_held) {
             if (hold_state.shift_injected) {
                 unregister_code16_with_shift(hold_state.keycode);
             } else {
@@ -169,6 +174,10 @@ static inline void clear_hold_state(void) {
         }
         hold_state.is_held = false;
         hold_state.keycode = 0;
+        hold_state.source_key_a = 0;
+        hold_state.source_key_b = 0;
+        hold_state.source_a_pressed = false;
+        hold_state.source_b_pressed = false;
     }
 }
 
@@ -257,6 +266,11 @@ static inline bool resolve_combo_head_extended(key_transform_extended_fn_t trans
 
             if (!head_pressed || !other_pressed) {
                 clear_hold_state();
+                if (combo_fifo_custom_combo_action(pair, transformed.keycode, shifted, transformed.needs_unshift, false)) {
+                    fifo_remove(i);
+                    fifo_remove(0);
+                    return true;
+                }
                 if (combo_fifo_custom_action(transformed.keycode, shifted, transformed.needs_unshift, false)) {
                     fifo_remove(i);
                     fifo_remove(0);
@@ -275,6 +289,11 @@ static inline bool resolve_combo_head_extended(key_transform_extended_fn_t trans
             }
 
             clear_hold_state();
+            if (combo_fifo_custom_combo_action(pair, transformed.keycode, shifted, transformed.needs_unshift, true)) {
+                fifo_remove(i);
+                fifo_remove(0);
+                return true;
+            }
             if (combo_fifo_custom_action(transformed.keycode, shifted, transformed.needs_unshift, true)) {
                 fifo_remove(i);
                 fifo_remove(0);
@@ -287,6 +306,7 @@ static inline bool resolve_combo_head_extended(key_transform_extended_fn_t trans
             hold_state.source_key_b = other_kc;
             hold_state.source_a_pressed = head_pressed;
             hold_state.source_b_pressed = other_pressed;
+            hold_state.modifier_hold = false;
 
             if (transformed.needs_unshift) {
                 tap_code16_unshifted(transformed.keycode);
