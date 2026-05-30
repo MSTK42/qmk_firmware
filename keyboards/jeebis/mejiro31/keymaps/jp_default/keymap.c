@@ -47,6 +47,10 @@ enum custom_keycodes {
     TG_JIS,              // JISモード切替キー
     TG_ALT,              // Alternative Layout切替キー
     TG_MJR,              // Mejiro（メジロ式）モード切替キー
+    O24_K1,
+    O24_K2,
+    O24_K3,
+    O24_K4,
 };
 
 #define MT_SPC KC_LSFT
@@ -54,10 +58,10 @@ enum custom_keycodes {
 #define MT_TGL LT(_NUMBER, KC_F24)
 #define MO_FUN MO(_FUNCTION)
 #define MY_QUES RSFT(KC_SLSH)
-#define O24_KEY1 LT(_O24_NUMBER, KC_BSPC)
-#define O24_KEY2 LCTL_T(KC_ENT)
-#define O24_KEY3 LT(_O24_NAV, KC_SPC)
-#define O24_KEY4 LCTL_T(KC_TAB)
+#define O24_KEY1 O24_K1
+#define O24_KEY2 O24_K2
+#define O24_KEY3 O24_K3
+#define O24_KEY4 O24_K4
 
 /*---------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------ユーザーカスタマイズ----------------------------------------*/
@@ -130,6 +134,21 @@ typedef struct {
 static toggle_hold_state_t tg_jis_state = {false, 0};
 static toggle_hold_state_t tg_alt_state = {false, 0};
 static toggle_hold_state_t tg_mjr_state = {false, 0};
+
+typedef struct {
+    bool pressed;
+    bool hold_active;
+    bool consumed;
+    uint16_t timer;
+} o24_thumb_state_t;
+
+static o24_thumb_state_t o24_key1_state = {false, false, false, 0};
+static o24_thumb_state_t o24_key2_state = {false, false, false, 0};
+static o24_thumb_state_t o24_key3_state = {false, false, false, 0};
+static o24_thumb_state_t o24_key4_state = {false, false, false, 0};
+static bool o24_key1_key2_chord_pressed = false;
+static bool o24_system_layer_active = false;
+static uint16_t o24_key1_key2_chord_timer = 0;
 
 static inline bool is_modifier_keycode(uint16_t keycode) {
     switch (keycode) {
@@ -567,6 +586,119 @@ static bool handle_toggle_on_hold(keyrecord_t *record, toggle_hold_state_t *stat
     return false;
 }
 
+static void o24_update_key1_key2_chord(void) {
+    bool both_pressed = o24_key1_state.pressed && o24_key2_state.pressed;
+    if (both_pressed && !o24_key1_key2_chord_pressed) {
+        o24_key1_key2_chord_pressed = true;
+        o24_key1_key2_chord_timer = timer_read();
+        o24_key1_state.consumed = true;
+        o24_key2_state.consumed = true;
+        if (o24_key1_state.hold_active) {
+            layer_off(_O24_NUMBER);
+            o24_key1_state.hold_active = false;
+        }
+        if (o24_key2_state.hold_active) {
+            unregister_code16(KC_LCTL);
+            o24_key2_state.hold_active = false;
+        }
+    } else if (!both_pressed) {
+        o24_key1_key2_chord_pressed = false;
+    }
+}
+
+static void o24_unregister_ctrl(o24_thumb_state_t *state) {
+    if (!state->hold_active) return;
+    unregister_code16(KC_LCTL);
+    state->hold_active = false;
+}
+
+static void o24_deactivate_system_layer(void) {
+    if (!o24_system_layer_active) return;
+    layer_off(_O24_SYSTEM);
+    o24_system_layer_active = false;
+}
+
+static void o24_activate_system_layer(void) {
+    if (o24_key1_state.hold_active) {
+        layer_off(_O24_NUMBER);
+        o24_key1_state.hold_active = false;
+    }
+    o24_unregister_ctrl(&o24_key2_state);
+    o24_key1_state.consumed = true;
+    o24_key2_state.consumed = true;
+    if (!o24_system_layer_active) {
+        layer_on(_O24_SYSTEM);
+        o24_system_layer_active = true;
+    }
+}
+
+static void o24_scan_thumb_layers(void) {
+    if (o24_key1_key2_chord_pressed && !o24_system_layer_active &&
+        timer_elapsed(o24_key1_key2_chord_timer) >= COMBO_TIMEOUT_MS) {
+        o24_activate_system_layer();
+    }
+
+    if (o24_system_layer_active) return;
+
+    if (o24_key1_state.pressed && !o24_key1_state.consumed && !o24_key1_state.hold_active &&
+        timer_elapsed(o24_key1_state.timer) >= TAPPING_TERM) {
+        layer_on(_O24_NUMBER);
+        o24_key1_state.hold_active = true;
+    }
+    if (o24_key3_state.pressed && !o24_key3_state.consumed && !o24_key3_state.hold_active &&
+        timer_elapsed(o24_key3_state.timer) >= TAPPING_TERM) {
+        layer_on(_O24_NAV);
+        o24_key3_state.hold_active = true;
+    }
+    if (o24_key2_state.pressed && !o24_key2_state.consumed && !o24_key2_state.hold_active &&
+        timer_elapsed(o24_key2_state.timer) >= TAPPING_TERM) {
+        register_code16(KC_LCTL);
+        o24_key2_state.hold_active = true;
+    }
+    if (o24_key4_state.pressed && !o24_key4_state.consumed && !o24_key4_state.hold_active &&
+        timer_elapsed(o24_key4_state.timer) >= TAPPING_TERM) {
+        register_code16(KC_LCTL);
+        o24_key4_state.hold_active = true;
+    }
+}
+
+static bool process_o24_thumb_key(o24_thumb_state_t *state, keyrecord_t *record, uint16_t tap_key, uint8_t hold_layer, bool ctrl_hold) {
+    if (record->event.pressed) {
+        state->pressed = true;
+        state->hold_active = false;
+        state->consumed = false;
+        state->timer = timer_read();
+        o24_update_key1_key2_chord();
+        return false;
+    }
+
+    state->pressed = false;
+
+    if (o24_system_layer_active && (state == &o24_key1_state || state == &o24_key2_state)) {
+        o24_deactivate_system_layer();
+        state->consumed = true;
+    }
+
+    if (hold_layer != 0 && state->hold_active) {
+        layer_off(hold_layer);
+        state->hold_active = false;
+        state->consumed = true;
+    }
+
+    if (ctrl_hold && state->hold_active) {
+        o24_unregister_ctrl(state);
+        state->consumed = true;
+    }
+
+    o24_update_key1_key2_chord();
+
+    if (!state->consumed && timer_elapsed(state->timer) < TAPPING_TERM) {
+        tap_code16(tap_key);
+    }
+    state->consumed = false;
+    return false;
+}
+
 /*---------------------------------------------------------------------------------------------------*/
 /*--------------------------------------------FIFOコンボ----------------------------------------------*/
 /*---------------------------------------------------------------------------------------------------*/
@@ -582,6 +714,15 @@ const combo_pair_t combo_pairs[] PROGMEM = {
     {KC_I,    KC_COMM, KC_K,    _QWERTY},
     {KC_O,    KC_DOT,  KC_L,    _QWERTY},
     {KC_P,    KC_SLSH, KC_SCLN, _QWERTY},
+
+    {KC_TILD, KC_DLR,  KC_0,    _O24_NUMBER},
+    {KC_1,    KC_7,    KC_4,    _O24_NUMBER},
+    {KC_2,    KC_8,    KC_5,    _O24_NUMBER},
+    {KC_3,    KC_9,    KC_6,    _O24_NUMBER},
+    {KC_LABK, KC_EXLM, KC_PLUS, _O24_NUMBER},
+    {KC_EQL,  KC_QUES, KC_MINS, _O24_NUMBER},
+    {KC_RABK, KC_COLN, KC_ASTR, _O24_NUMBER},
+    {KC_PERC, KC_SCLN, KC_SLSH, _O24_NUMBER},
 
     {KC_1,    KC_7,    KC_4,     _NUMBER},
     {KC_2,    KC_8,    KC_5,     _NUMBER},
@@ -676,13 +817,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_QWERTY] = LAYOUT(
         KC_NO,  KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_NO,
         KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_NO,
-                                  KC_NO  ,          MT_TGL, KC_NO,
+                                  KC_LNG2,          MT_TGL, KC_LNG1,
                                   O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     [_QWERTY_SHIFT] = LAYOUT(
         KC_NO,  KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_NO,
         KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_LABK, KC_RABK,KC_QUES, KC_NO,
-                                  KC_NO  ,          MT_TGL, KC_NO,
+                                  KC_LNG2,          MT_TGL, KC_LNG1,
                                   O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     // NUMBER
@@ -738,10 +879,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                      KC_TRNS, KC_TRNS,         KC_F11,  KC_F12
     ),
     [_O24_NUMBER] = LAYOUT(
-        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
-        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TILD, KC_1,    KC_2,    KC_3,    KC_COMM,          KC_CIRC, KC_LABK, KC_EQL,  KC_RABK, KC_PERC, KC_TRNS,
+        KC_TRNS, KC_DLR,  KC_7,    KC_8,    KC_9,    KC_DOT,           KC_UNDS, KC_EXLM, KC_QUES, KC_COLN, KC_SCLN, KC_TRNS,
                                       KC_TRNS,         KC_TRNS, KC_TRNS,
-                                      KC_TRNS, KC_TRNS,         KC_TRNS, KC_TRNS
+                                      KC_BSPC, KC_TRNS,         KC_TRNS, KC_TRNS
     ),
     [_O24_NAV] = LAYOUT(
         KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
@@ -854,6 +995,14 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
 
     switch (keycode) {
+        case O24_K1:
+            return process_o24_thumb_key(&o24_key1_state, record, KC_BSPC, _O24_NUMBER, false);
+        case O24_K2:
+            return process_o24_thumb_key(&o24_key2_state, record, KC_ENT, 0, true);
+        case O24_K3:
+            return process_o24_thumb_key(&o24_key3_state, record, KC_SPC, _O24_NAV, false);
+        case O24_K4:
+            return process_o24_thumb_key(&o24_key4_state, record, KC_TAB, 0, true);
         case MT_TGL:
             if (record->event.pressed) {
                 mt_tgl_pressed = true;
@@ -1016,6 +1165,7 @@ void matrix_scan_user(void) {
     }
     refresh_force_qwerty_state();
     refresh_shift_layer_state();
+    o24_scan_thumb_layers();
     combo_fifo_service_extended(transform_key_extended);
 
     if (dz_delayed) {
