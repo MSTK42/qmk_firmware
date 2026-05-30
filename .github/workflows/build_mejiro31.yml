@@ -6,7 +6,7 @@ on:
       preset:
         description: "firmware_name from keyboards/jeebis/mejiro31/keymaps/jp_default/firmware_presets.json"
         required: true
-        default: "mejiro31_jp_qwerty"
+        default: "mejiro31_jp_o24"
       build_all:
         description: "Build every jp_default preset instead of the preset above"
         type: boolean

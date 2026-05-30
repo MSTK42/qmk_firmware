@@ -541,12 +541,14 @@ static bool handle_toggle_on_hold(keyrecord_t *record, toggle_hold_state_t *stat
 // コンボ定義（順不同）
 const combo_pair_t combo_pairs[] PROGMEM = {
 
+    {KC_Q,    KC_Z,    KC_A,    _QWERTY},
     {KC_W,    KC_X,    KC_S,    _QWERTY},
     {KC_E,    KC_C,    KC_D,    _QWERTY},
     {KC_R,    KC_V,    KC_F,    _QWERTY},
     {KC_U,    KC_M,    KC_J,    _QWERTY},
     {KC_I,    KC_COMM, KC_K,    _QWERTY},
     {KC_O,    KC_DOT,  KC_L,    _QWERTY},
+    {KC_P,    KC_SLSH, KC_SCLN, _QWERTY},
 
     {KC_1,    KC_7,    KC_4,     _NUMBER},
     {KC_2,    KC_8,    KC_5,     _NUMBER},
@@ -630,14 +632,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         │ ALT │ CTL │   │Layer│   │  !  │  ?  │
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     [_QWERTY] = LAYOUT(
-        KC_GRV, KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_MINS,
-        KC_LGUI,KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_BSLS,
+        KC_NO,  KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_NO,
+        KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_NO,
                                   KC_NO  ,          MT_TGL, KC_NO,
                                   O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     [_QWERTY_SHIFT] = LAYOUT(
-        KC_TILD,KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_UNDS,
-        KC_LGUI,KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_LABK, KC_RABK,KC_QUES, KC_PIPE,
+        KC_NO,  KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_NO,
+        KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_LABK, KC_RABK,KC_QUES, KC_NO,
                                   KC_NO  ,          MT_TGL, KC_NO,
                                   O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
