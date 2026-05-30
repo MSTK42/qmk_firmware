@@ -266,7 +266,9 @@ static inline bool resolve_combo_head_extended(key_transform_extended_fn_t trans
             bool other_pressed = !combo_fifo[i].released;
 
             if (!head_pressed || !other_pressed) {
-                clear_hold_state();
+                if (!hold_state.modifier_hold) {
+                    clear_hold_state();
+                }
                 if (combo_fifo_custom_combo_action(pair, transformed.keycode, shifted, transformed.needs_unshift, false)) {
                     fifo_remove(i);
                     fifo_remove(0);

@@ -81,6 +81,24 @@ typedef struct {
 static alt_layout_def_t alt_en_layout = ALT_LAYOUT(qwerty);  // 英語モード時のレイアウト
 static alt_layout_def_t alt_jp_layout = ALT_LAYOUT(qwerty);  // 日本語モード時のレイアウト
 
+static inline bool layout_def_is_o24(alt_layout_def_t layout) {
+    return layout.mappings == o24;
+}
+
+static inline bool keyboard_uses_o24_layout(void) {
+    return layout_def_is_o24(alt_en_layout) || layout_def_is_o24(alt_jp_layout);
+}
+
+static inline bool is_o24_keyboard_layer(uint8_t layer) {
+    return keyboard_uses_o24_layout() && (
+        layer == _QWERTY ||
+        layer == _QWERTY_SHIFT ||
+        layer == _O24_NUMBER ||
+        layer == _O24_NAV ||
+        layer == _O24_SYSTEM
+    );
+}
+
 // ============================================================
 // 言語設定
 // ============================================================
@@ -163,6 +181,10 @@ void keyboard_post_init_user(void) {
     os_variant_t os = detected_host_os();
     is_mac = (os == OS_MACOS || os == OS_IOS);
     user_config.raw = eeconfig_read_user();
+    if (keyboard_uses_o24_layout() && !user_config.alt_mode) {
+        user_config.alt_mode = true;
+        eeconfig_update_user(user_config.raw);
+    }
     is_jis_mode = (user_config.jis_mode);
     is_alt_mode = (user_config.alt_mode);
     is_mejiro_mode = (user_config.mejiro_mode);
@@ -318,8 +340,9 @@ static inline transformed_key_t transform_key_extended(uint16_t kc, bool shifted
 static void refresh_force_qwerty_state(void) {
     uint8_t current_layer = get_highest_layer(layer_state | default_layer_state);
     bool is_number_or_function = (current_layer == _NUMBER || current_layer == _FUNCTION);
+    bool keep_o24_layout = is_o24_keyboard_layer(current_layer);
 
-    bool should_force = mods_except_shift_active() && !is_number_or_function;
+    bool should_force = mods_except_shift_active() && !is_number_or_function && !keep_o24_layout;
     layer_state_t qwerty_default = (layer_state_t)1UL << _QWERTY;
 
     if (should_force) {
@@ -508,6 +531,12 @@ static void toggle_jis_mode(void) {
 }
 
 static void toggle_alt_mode(void) {
+    if (keyboard_uses_o24_layout()) {
+        user_config.alt_mode = true;
+        apply_alt_mode_for_lang(get_active_lang());
+        eeconfig_update_user(user_config.raw);
+        return;
+    }
     user_config.alt_mode = !user_config.alt_mode;
     apply_alt_mode_for_lang(get_active_lang());
     eeconfig_update_user(user_config.raw);
@@ -762,7 +791,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         if (record->event.pressed) {
             if (combo_fifo_len < COMBO_FIFO_LEN) {
                 uint16_t base = keycode;
-                if (hold_state.is_held && combo_fifo_len > 0) {
+                if (hold_state.is_held && !hold_state.modifier_hold && combo_fifo_len > 0) {
                     clear_hold_state();
                 }
                 combo_fifo[combo_fifo_len].keycode = base;
