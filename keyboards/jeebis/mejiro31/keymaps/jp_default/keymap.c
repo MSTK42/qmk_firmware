@@ -616,6 +616,15 @@ bool is_combo_candidate(uint16_t keycode) {
     if (keycode == KC_RIGHT) return true;
     if (keycode == KC_END) return true;
     if (keycode == KC_CAPS) return true;
+    if (keyboard_uses_o24_layout()) {
+        switch (keycode) {
+            case KC_Q: case KC_W: case KC_E: case KC_R: case KC_T:
+            case KC_Y: case KC_U: case KC_I: case KC_O: case KC_P:
+            case KC_Z: case KC_X: case KC_C: case KC_V: case KC_B:
+            case KC_N: case KC_M: case KC_COMM: case KC_DOT: case KC_SLSH:
+                return true;
+        }
+    }
     return is_combo_candidate_default(keycode, 0);
 }
 
