@@ -1,0 +1,53 @@
+name: Build Mejiro31 Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: "firmware_name from keyboards/jeebis/mejiro31/keymaps/jp_default/firmware_presets.json"
+        required: true
+        default: "mejiro31_jp_qwerty"
+      build_all:
+        description: "Build every jp_default preset instead of the preset above"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/qmk/qmk_cli
+
+    steps:
+      - name: Disable safe.directory check
+        run: git config --global --add safe.directory '*'
+
+      - name: Checkout firmware
+        uses: actions/checkout@v6
+
+      - name: Install Python dependencies
+        run: pip3 install -r requirements.txt
+
+      - name: Deploy QMK submodules
+        run: qmk git-submodule -f
+
+      - name: List Mejiro31 presets
+        run: python3 keyboards/jeebis/mejiro31/keymaps/jp_default/build_firmware_presets.py --list
+
+      - name: Build Mejiro31 preset
+        if: ${{ !inputs.build_all }}
+        run: python3 keyboards/jeebis/mejiro31/keymaps/jp_default/build_firmware_presets.py "${{ inputs.preset }}"
+
+      - name: Build all Mejiro31 presets
+        if: ${{ inputs.build_all }}
+        run: python3 keyboards/jeebis/mejiro31/keymaps/jp_default/build_firmware_presets.py --all
+
+      - name: Upload UF2 firmware
+        uses: actions/upload-artifact@v6
+        with:
+          name: mejiro31-firmware
+          path: .build/export/*.uf2
+          if-no-files-found: error
