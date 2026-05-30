@@ -30,6 +30,11 @@ __attribute__((weak)) bool combo_fifo_custom_action(uint16_t keycode, bool shift
 	return false;
 }
 
+__attribute__((weak)) bool combo_fifo_custom_combo_wait_for_hold(combo_pair_t pair) {
+	(void)pair;
+	return false;
+}
+
 __attribute__((weak)) bool combo_fifo_custom_combo_action(combo_pair_t pair, uint16_t keycode, bool shifted, bool needs_unshift, bool is_hold) {
 	(void)pair;
 	(void)keycode;

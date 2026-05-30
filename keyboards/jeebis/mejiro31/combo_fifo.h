@@ -120,6 +120,7 @@ typedef struct {
 typedef transformed_key_t (*key_transform_extended_fn_t)(uint16_t kc, bool shifted, uint8_t layer);
 
 bool combo_fifo_custom_action(uint16_t keycode, bool shifted, bool needs_unshift, bool is_hold);
+bool combo_fifo_custom_combo_wait_for_hold(combo_pair_t pair);
 bool combo_fifo_custom_combo_action(combo_pair_t pair, uint16_t keycode, bool shifted, bool needs_unshift, bool is_hold);
 
 /**
@@ -286,6 +287,10 @@ static inline bool resolve_combo_head_extended(key_transform_extended_fn_t trans
                 fifo_remove(i);
                 fifo_remove(0);
                 return true;
+            }
+
+            if (combo_fifo_custom_combo_wait_for_hold(pair) && timer_elapsed(combo_fifo[i].time_pressed) <= COMBO_TIMEOUT_MS) {
+                return false;
             }
 
             clear_hold_state();

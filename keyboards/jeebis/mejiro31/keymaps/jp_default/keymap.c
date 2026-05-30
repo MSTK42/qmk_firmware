@@ -473,6 +473,10 @@ static uint16_t o24_combo_hold_modifier(combo_pair_t pair) {
     return KC_NO;
 }
 
+bool combo_fifo_custom_combo_wait_for_hold(combo_pair_t pair) {
+    return o24_combo_hold_modifier(pair) != KC_NO;
+}
+
 bool combo_fifo_custom_combo_action(combo_pair_t pair, uint16_t keycode, bool shifted, bool needs_unshift, bool is_hold) {
     (void)keycode;
     (void)shifted;
