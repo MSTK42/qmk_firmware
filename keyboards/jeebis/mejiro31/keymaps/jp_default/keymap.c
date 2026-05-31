@@ -148,10 +148,10 @@ static o24_thumb_state_t o24_key1_state = {false, false, false, false, 0};
 static o24_thumb_state_t o24_key2_state = {false, false, false, false, 0};
 static o24_thumb_state_t o24_key3_state = {false, false, false, false, 0};
 static o24_thumb_state_t o24_key4_state = {false, false, false, false, 0};
-static bool o24_key1_key2_chord_pressed = false;
+static bool o24_key1_key4_chord_pressed = false;
 static bool o24_system_layer_active = false;
 static bool o24_key1_recent_tap = false;
-static uint16_t o24_key1_key2_chord_timer = 0;
+static uint16_t o24_key1_key4_chord_timer = 0;
 static uint16_t o24_key1_last_tap_timer = 0;
 
 static inline bool is_modifier_keycode(uint16_t keycode) {
@@ -603,24 +603,24 @@ static void o24_stop_key1_repeat(void) {
     o24_key1_state.repeat_active = false;
 }
 
-static void o24_update_key1_key2_chord(void) {
-    bool both_pressed = o24_key1_state.pressed && o24_key2_state.pressed;
-    if (both_pressed && !o24_key1_key2_chord_pressed) {
-        o24_key1_key2_chord_pressed = true;
-        o24_key1_key2_chord_timer = timer_read();
+static void o24_update_key1_key4_chord(void) {
+    bool both_pressed = o24_key1_state.pressed && o24_key4_state.pressed;
+    if (both_pressed && !o24_key1_key4_chord_pressed) {
+        o24_key1_key4_chord_pressed = true;
+        o24_key1_key4_chord_timer = timer_read();
         o24_key1_state.consumed = true;
-        o24_key2_state.consumed = true;
+        o24_key4_state.consumed = true;
         o24_stop_key1_repeat();
         if (o24_key1_state.hold_active) {
             layer_off(_O24_NUMBER);
             o24_key1_state.hold_active = false;
         }
-        if (o24_key2_state.hold_active) {
-            unregister_code16(KC_LCTL);
-            o24_key2_state.hold_active = false;
+        if (o24_key4_state.hold_active) {
+            layer_off(_O24_NAV);
+            o24_key4_state.hold_active = false;
         }
     } else if (!both_pressed) {
-        o24_key1_key2_chord_pressed = false;
+        o24_key1_key4_chord_pressed = false;
     }
 }
 
@@ -641,9 +641,12 @@ static void o24_activate_system_layer(void) {
         layer_off(_O24_NUMBER);
         o24_key1_state.hold_active = false;
     }
-    o24_unregister_ctrl(&o24_key2_state);
+    if (o24_key4_state.hold_active) {
+        layer_off(_O24_NAV);
+        o24_key4_state.hold_active = false;
+    }
     o24_key1_state.consumed = true;
-    o24_key2_state.consumed = true;
+    o24_key4_state.consumed = true;
     if (!o24_system_layer_active) {
         layer_on(_O24_SYSTEM);
         o24_system_layer_active = true;
@@ -651,8 +654,8 @@ static void o24_activate_system_layer(void) {
 }
 
 static void o24_scan_thumb_layers(void) {
-    if (o24_key1_key2_chord_pressed && !o24_system_layer_active &&
-        timer_elapsed(o24_key1_key2_chord_timer) >= COMBO_TIMEOUT_MS) {
+    if (o24_key1_key4_chord_pressed && !o24_system_layer_active &&
+        timer_elapsed(o24_key1_key4_chord_timer) >= COMBO_TIMEOUT_MS) {
         o24_activate_system_layer();
     }
 
@@ -663,19 +666,19 @@ static void o24_scan_thumb_layers(void) {
         layer_on(_O24_NUMBER);
         o24_key1_state.hold_active = true;
     }
-    if (o24_key3_state.pressed && !o24_key3_state.consumed && !o24_key3_state.hold_active &&
-        timer_elapsed(o24_key3_state.timer) >= TAPPING_TERM) {
-        layer_on(_O24_NAV);
-        o24_key3_state.hold_active = true;
-    }
     if (o24_key2_state.pressed && !o24_key2_state.consumed && !o24_key2_state.hold_active &&
         timer_elapsed(o24_key2_state.timer) >= TAPPING_TERM) {
         register_code16(KC_LCTL);
         o24_key2_state.hold_active = true;
     }
+    if (o24_key3_state.pressed && !o24_key3_state.consumed && !o24_key3_state.hold_active &&
+        timer_elapsed(o24_key3_state.timer) >= TAPPING_TERM) {
+        register_code16(KC_LCTL);
+        o24_key3_state.hold_active = true;
+    }
     if (o24_key4_state.pressed && !o24_key4_state.consumed && !o24_key4_state.hold_active &&
         timer_elapsed(o24_key4_state.timer) >= TAPPING_TERM) {
-        register_code16(KC_LCTL);
+        layer_on(_O24_NAV);
         o24_key4_state.hold_active = true;
     }
 }
@@ -697,13 +700,13 @@ static bool process_o24_thumb_key(o24_thumb_state_t *state, keyrecord_t *record,
                 o24_key1_recent_tap = false;
             }
         }
-        o24_update_key1_key2_chord();
+        o24_update_key1_key4_chord();
         return false;
     }
 
     state->pressed = false;
 
-    if (o24_system_layer_active && (state == &o24_key1_state || state == &o24_key2_state)) {
+    if (o24_system_layer_active && (state == &o24_key1_state || state == &o24_key4_state)) {
         o24_deactivate_system_layer();
         state->consumed = true;
     }
@@ -725,7 +728,7 @@ static bool process_o24_thumb_key(o24_thumb_state_t *state, keyrecord_t *record,
         state->consumed = true;
     }
 
-    o24_update_key1_key2_chord();
+    o24_update_key1_key4_chord();
 
     if (!state->consumed && timer_elapsed(state->timer) < TAPPING_TERM) {
         tap_code16(tap_key);
@@ -1044,9 +1047,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case O24_K2:
             return process_o24_thumb_key(&o24_key2_state, record, KC_ENT, 0, true);
         case O24_K3:
-            return process_o24_thumb_key(&o24_key3_state, record, KC_SPC, _O24_NAV, false);
+            return process_o24_thumb_key(&o24_key3_state, record, KC_TAB, 0, true);
         case O24_K4:
-            return process_o24_thumb_key(&o24_key4_state, record, KC_TAB, 0, true);
+            return process_o24_thumb_key(&o24_key4_state, record, KC_SPC, _O24_NAV, false);
         case MT_TGL:
             if (record->event.pressed) {
                 mt_tgl_pressed = true;
