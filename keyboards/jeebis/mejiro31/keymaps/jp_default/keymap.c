@@ -62,6 +62,7 @@ enum custom_keycodes {
 #define O24_KEY2 O24_K2
 #define O24_KEY3 O24_K3
 #define O24_KEY4 O24_K4
+#define O24_KEY1_REPEAT_TERM TAPPING_TERM
 
 /*---------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------ユーザーカスタマイズ----------------------------------------*/
@@ -139,16 +140,19 @@ typedef struct {
     bool pressed;
     bool hold_active;
     bool consumed;
+    bool repeat_active;
     uint16_t timer;
 } o24_thumb_state_t;
 
-static o24_thumb_state_t o24_key1_state = {false, false, false, 0};
-static o24_thumb_state_t o24_key2_state = {false, false, false, 0};
-static o24_thumb_state_t o24_key3_state = {false, false, false, 0};
-static o24_thumb_state_t o24_key4_state = {false, false, false, 0};
+static o24_thumb_state_t o24_key1_state = {false, false, false, false, 0};
+static o24_thumb_state_t o24_key2_state = {false, false, false, false, 0};
+static o24_thumb_state_t o24_key3_state = {false, false, false, false, 0};
+static o24_thumb_state_t o24_key4_state = {false, false, false, false, 0};
 static bool o24_key1_key2_chord_pressed = false;
 static bool o24_system_layer_active = false;
+static bool o24_key1_recent_tap = false;
 static uint16_t o24_key1_key2_chord_timer = 0;
+static uint16_t o24_key1_last_tap_timer = 0;
 
 static inline bool is_modifier_keycode(uint16_t keycode) {
     switch (keycode) {
@@ -586,6 +590,19 @@ static bool handle_toggle_on_hold(keyrecord_t *record, toggle_hold_state_t *stat
     return false;
 }
 
+static bool o24_key1_should_repeat_on_hold(void) {
+    if (!o24_key1_recent_tap) return false;
+    if (timer_elapsed(o24_key1_last_tap_timer) <= O24_KEY1_REPEAT_TERM) return true;
+    o24_key1_recent_tap = false;
+    return false;
+}
+
+static void o24_stop_key1_repeat(void) {
+    if (!o24_key1_state.repeat_active) return;
+    unregister_code16(KC_BSPC);
+    o24_key1_state.repeat_active = false;
+}
+
 static void o24_update_key1_key2_chord(void) {
     bool both_pressed = o24_key1_state.pressed && o24_key2_state.pressed;
     if (both_pressed && !o24_key1_key2_chord_pressed) {
@@ -593,6 +610,7 @@ static void o24_update_key1_key2_chord(void) {
         o24_key1_key2_chord_timer = timer_read();
         o24_key1_state.consumed = true;
         o24_key2_state.consumed = true;
+        o24_stop_key1_repeat();
         if (o24_key1_state.hold_active) {
             layer_off(_O24_NUMBER);
             o24_key1_state.hold_active = false;
@@ -667,7 +685,18 @@ static bool process_o24_thumb_key(o24_thumb_state_t *state, keyrecord_t *record,
         state->pressed = true;
         state->hold_active = false;
         state->consumed = false;
+        state->repeat_active = false;
         state->timer = timer_read();
+        if (state == &o24_key1_state) {
+            if (o24_key1_should_repeat_on_hold()) {
+                register_code16(tap_key);
+                state->repeat_active = true;
+                state->consumed = true;
+                o24_key1_recent_tap = false;
+            } else {
+                o24_key1_recent_tap = false;
+            }
+        }
         o24_update_key1_key2_chord();
         return false;
     }
@@ -676,6 +705,12 @@ static bool process_o24_thumb_key(o24_thumb_state_t *state, keyrecord_t *record,
 
     if (o24_system_layer_active && (state == &o24_key1_state || state == &o24_key2_state)) {
         o24_deactivate_system_layer();
+        state->consumed = true;
+    }
+
+    if (state->repeat_active) {
+        unregister_code16(tap_key);
+        state->repeat_active = false;
         state->consumed = true;
     }
 
@@ -694,6 +729,10 @@ static bool process_o24_thumb_key(o24_thumb_state_t *state, keyrecord_t *record,
 
     if (!state->consumed && timer_elapsed(state->timer) < TAPPING_TERM) {
         tap_code16(tap_key);
+        if (state == &o24_key1_state) {
+            o24_key1_recent_tap = true;
+            o24_key1_last_tap_timer = timer_read();
+        }
     }
     state->consumed = false;
     return false;
@@ -723,6 +762,11 @@ const combo_pair_t combo_pairs[] PROGMEM = {
     {KC_EQL,  KC_QUES, KC_MINS, _O24_NUMBER},
     {KC_RABK, KC_COLN, KC_ASTR, _O24_NUMBER},
     {KC_PERC, KC_SCLN, KC_SLSH, _O24_NUMBER},
+
+    {KC_AT,   KC_BSLS, KC_HASH, _O24_NAV},
+    {KC_LBRC, KC_LCBR, KC_LPRN, _O24_NAV},
+    {KC_DQUO, KC_GRV,  KC_QUOT, _O24_NAV},
+    {KC_RBRC, KC_RCBR, KC_RPRN, _O24_NAV},
 
     {KC_1,    KC_7,    KC_4,     _NUMBER},
     {KC_2,    KC_8,    KC_5,     _NUMBER},
@@ -885,14 +929,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                       KC_BSPC, KC_TRNS,         KC_TRNS, KC_TRNS
     ),
     [_O24_NAV] = LAYOUT(
-        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
-        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_AT,   KC_LBRC, KC_DQUO, KC_RBRC, KC_AMPR,          KC_TRNS, KC_ESC,  KC_UP,   KC_TRNS, KC_PSCR, KC_TRNS,
+        KC_TRNS, KC_BSLS, KC_LCBR, KC_GRV,  KC_RCBR, KC_PIPE,          KC_TRNS, KC_LEFT, KC_DOWN, KC_RIGHT, KC_TRNS, KC_TRNS,
                                       KC_TRNS,         KC_TRNS, KC_TRNS,
                                       KC_TRNS, KC_TRNS,         KC_TRNS, KC_TRNS
     ),
     [_O24_SYSTEM] = LAYOUT(
-        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
-        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+        KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_HOME, KC_TRNS, KC_END,  KC_TRNS, KC_TRNS,
+        KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,            KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
                                       KC_TRNS,         KC_TRNS, KC_TRNS,
                                       KC_TRNS, KC_TRNS,         KC_TRNS, KC_TRNS
     ),
