@@ -926,19 +926,19 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_TRNS, KC_TILD, KC_1,    KC_2,    KC_3,    KC_COMM,          KC_CIRC, KC_LABK, KC_EQL,  KC_RABK, KC_PERC, KC_TRNS,
         KC_TRNS, KC_DLR,  KC_7,    KC_8,    KC_9,    KC_DOT,           KC_UNDS, KC_EXLM, KC_QUES, KC_COLN, KC_SCLN, KC_TRNS,
                                       KC_TRNS,         KC_TRNS, KC_TRNS,
-                                      KC_BSPC, KC_TRNS,         KC_TRNS, KC_TRNS
+                                      O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     [_O24_NAV] = LAYOUT(
         KC_TRNS, KC_AT,   KC_LBRC, KC_DQUO, KC_RBRC, KC_AMPR,          KC_TRNS, KC_ESC,  KC_UP,   KC_TRNS, KC_PSCR, KC_TRNS,
         KC_TRNS, KC_BSLS, KC_LCBR, KC_GRV,  KC_RCBR, KC_PIPE,          KC_TRNS, KC_LEFT, KC_DOWN, KC_RIGHT, KC_TRNS, KC_TRNS,
                                       KC_TRNS,         KC_TRNS, KC_TRNS,
-                                      KC_TRNS, KC_TRNS,         KC_TRNS, KC_TRNS
+                                      O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     [_O24_SYSTEM] = LAYOUT(
         KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,          KC_TRNS, KC_HOME, KC_TRNS, KC_END,  KC_TRNS, KC_TRNS,
         KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,            KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
                                       KC_TRNS,         KC_TRNS, KC_TRNS,
-                                      KC_TRNS, KC_TRNS,         KC_TRNS, KC_TRNS
+                                      O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
 };
 
