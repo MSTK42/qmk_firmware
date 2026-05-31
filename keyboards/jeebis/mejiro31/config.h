@@ -17,7 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#define TAPPING_TERM 200
+#define TAPPING_TERM 175
 #define PERMISSIVE_HOLD
-#define QUICK_TAP_TERM 0
+#define QUICK_TAP_TERM 200
 #define DYNAMIC_KEYMAP_LAYER_COUNT 9
