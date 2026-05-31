@@ -62,7 +62,7 @@ enum custom_keycodes {
 #define O24_KEY2 O24_K2
 #define O24_KEY3 O24_K3
 #define O24_KEY4 O24_K4
-#define O24_KEY1_REPEAT_TERM QUICK_TAP_TERM
+#define O24_KEY1_REPEAT_TERM 200
 #define O24_SYSTEM_CHORD_TERM TAPPING_TERM
 
 /*---------------------------------------------------------------------------------------------------*/
