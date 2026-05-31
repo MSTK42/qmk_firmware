@@ -26,7 +26,7 @@ extern bool force_qwerty_active;
 extern uint16_t default_layer;
 
 // 列挙型の宣言（各キーマップで定義）
-// enum layer_names の _QWERTY, _GEMINI, _NUMBER, _FUNCTION が必要
+// enum layer_names の _QWERTY, _GEMINI が必要
 
 typedef struct {
     uint16_t base;

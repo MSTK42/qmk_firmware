@@ -33,9 +33,6 @@ enum layer_names {
     _GEMINI = 0,
     _QWERTY,
     _QWERTY_SHIFT,
-    _NUMBER,
-    _NUMBER_SHIFT,
-    _FUNCTION,
     _O24_NUMBER,
     _O24_NAV,
     _O24_SYSTEM,
@@ -47,6 +44,7 @@ enum custom_keycodes {
     TG_JIS,              // JISモード切替キー
     TG_ALT,              // Alternative Layout切替キー
     TG_MJR,              // Mejiro（メジロ式）モード切替キー
+    MJR_TGL,
     O24_K1,
     O24_K2,
     O24_K3,
@@ -55,8 +53,7 @@ enum custom_keycodes {
 
 #define MT_SPC KC_LSFT
 #define MT_ENT KC_RSFT
-#define MT_TGL LT(_NUMBER, KC_F24)
-#define MO_FUN MO(_FUNCTION)
+#define MT_TGL MJR_TGL
 #define MY_QUES RSFT(KC_SLSH)
 #define O24_KEY1 O24_K1
 #define O24_KEY2 O24_K2
@@ -121,7 +118,6 @@ bool is_jis_mode = true;
 bool is_mejiro_mode = true;
 static bool is_mac = false;
 static bool os_detected = false;
-static bool mt_tgl_pressed = false;
 static uint16_t dz_timer = 0;
 static bool dz_delayed = false;
 static uint8_t dz_fifo_len_at_press = 0;  // DZ キー押下時のコンボ FIFO 長
@@ -363,10 +359,9 @@ static inline transformed_key_t transform_key_extended(uint16_t kc, bool shifted
 
 static void refresh_force_qwerty_state(void) {
     uint8_t current_layer = get_highest_layer(layer_state | default_layer_state);
-    bool is_number_or_function = (current_layer == _NUMBER || current_layer == _FUNCTION);
     bool keep_o24_layout = is_o24_keyboard_layer(current_layer);
 
-    bool should_force = mods_except_shift_active() && !is_number_or_function && !keep_o24_layout;
+    bool should_force = mods_except_shift_active() && !keep_o24_layout;
     layer_state_t qwerty_default = (layer_state_t)1UL << _QWERTY;
 
     if (should_force) {
@@ -389,12 +384,9 @@ static void refresh_force_qwerty_state(void) {
 static void refresh_shift_layer_state(void) {
     uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
     bool shift_held = lshift_timer > 0 || rshift_timer > 0;
-    bool number_shift_shortcut = lshift_timer > 0 && rshift_timer > 0;
 
-    if (number_shift_shortcut) {
-      layer_move(_NUMBER_SHIFT);
-    } else if (shift_held) {
-        if (!mt_tgl_pressed) {
+    if (shift_held) {
+        if (active_layer == _QWERTY) {
             layer_move(_QWERTY_SHIFT);
             default_layer_set((layer_state_t)1UL << _QWERTY);
             default_layer = _QWERTY;
@@ -402,8 +394,6 @@ static void refresh_shift_layer_state(void) {
     } else {
         if (active_layer == _QWERTY_SHIFT) {
             layer_move(_QWERTY);
-        } else if (active_layer == _NUMBER_SHIFT) {
-            layer_move(_NUMBER);
         }
     }
 }
@@ -771,26 +761,6 @@ const combo_pair_t combo_pairs[] PROGMEM = {
     {KC_LBRC, KC_LCBR, KC_LPRN, _O24_NAV},
     {KC_DQUO, KC_GRV,  KC_QUOT, _O24_NAV},
     {KC_RBRC, KC_RCBR, KC_RPRN, _O24_NAV},
-
-    {KC_1,    KC_7,    KC_4,     _NUMBER},
-    {KC_2,    KC_8,    KC_5,     _NUMBER},
-    {KC_3,    KC_9,    KC_6,     _NUMBER},
-    {KC_0,    KC_DZ,   KC_TZ,    _NUMBER},
-    {KC_DOT,  KC_MINS, KC_COMMA, _NUMBER},
-    {KC_9,    KC_DOT,  KC_TAB,   _NUMBER},
-    {KC_3,    KC_MINS, KC_ESC,   _NUMBER},
-    {KC_PGDN, KC_LEFT, KC_BSPC,  _NUMBER},
-    {KC_PGUP, KC_HOME, KC_DEL,   _NUMBER},
-    {KC_AMPR, KC_PIPE, KC_HASH,  _NUMBER},
-    {KC_PERC, KC_DLR,  KC_SLSH,  _NUMBER_SHIFT},
-    {KC_LCBR, KC_RCBR, KC_ASTR,  _NUMBER_SHIFT},
-    {KC_LBRC, KC_RBRC, KC_EQL,   _NUMBER_SHIFT},
-    {KC_LPRN, KC_RPRN, KC_PLUS,  _NUMBER_SHIFT},
-    {KC_LABK, KC_RABK, KC_CIRC,  _NUMBER_SHIFT},
-    {KC_RPRN, KC_RABK, KC_TAB,   _NUMBER_SHIFT},
-    {KC_LPRN, KC_LABK, KC_ESC,   _NUMBER_SHIFT},
-    {KC_PGDN, KC_LEFT, KC_BSPC,  _NUMBER_SHIFT},
-    {KC_PGUP, KC_HOME, KC_DEL,   _NUMBER_SHIFT},
 };
 uint8_t combo_pair_count = sizeof(combo_pairs) / sizeof(combo_pairs[0]);
 
@@ -873,58 +843,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_LABK, KC_RABK,KC_QUES, KC_NO,
                                   KC_LNG2,          MT_TGL, KC_LNG1,
                                   O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
-    ),
-    // NUMBER
-    // ┌─────┬─────┬─────┬─────┬─────┬─────┐             ┌─────┬─────┬─────┬─────┬─────┬─────┐
-    // │ MJR │ 00  │  1  │  2  │  3  │  -  │             │ PGU │ HOM │  ↑  │ END │ CAP │ ALT │
-    // ├─────┼─────┼──4──┼──5──┼──6──┼──,──┤             ├─────┼─────┼─────┼─────┼─────┼─────┤
-    // │ WIN │  0  │  7  │  8  │  9  │  .  │             │ PGD │  ←  │  ↓  │  →  │ WIN │MO_FN│
-    // └─────┴─────┴─────┴─────┴─────┴─────┘             └─────┴─────┴─────┴─────┴─────┴─────┘
-    //                         ┌───────────┐             ┌───────────┐
-    //                         │Space/Shift│             │Enter/Shift│
-    //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │ ALT │ CTL │   │Layer│   │  &  #  |  │
-    //                         └─────┴─────┘   └─────┘   └─────┴─────┘
-    // NUMBER Shifted
-    // ┌─────┬─────┬─────┬─────┬─────┬─────┐             ┌─────┬─────┬─────┬─────┬─────┬─────┐
-    // │ MJR │  %  │  [  │  {  │  (  │  <  │             │ PGU │ HOM │  ↑  │ END │ CAP │ ALT │
-    // ├─────┼──/──┼──*──┼──=──┼──+──┼──^──┤             ├─────┼─────┼─────┼─────┼─────┼─────┤
-    // │ WIN │  $  │  ]  │  }  │  )  │  >  │             │ PGD │  ←  │  ↓  │  →  │ WIN │MO_FN│
-    // └─────┴─────┴─────┴─────┴─────┴─────┘             └─────┴─────┴─────┴─────┴─────┴─────┘
-    //                         ┌───────────┐             ┌───────────┐
-    //                         │Space/Shift│             │Enter/Shift│
-    //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │ ALT │ CTL │   │Layer│   │ CTL │ ALT │
-    //                         └─────┴─────┘   └─────┘   └─────┴─────┘
-    [_NUMBER] = LAYOUT(
-        KC_NO,  KC_DZ,   KC_1,    KC_2,    KC_3,    KC_MINS,          KC_PGUP, KC_HOME, KC_UP,   KC_END,   KC_CAPS, KC_NO,
-        KC_LGUI,KC_0,    KC_7,    KC_8,    KC_9,    KC_DOT,           KC_PGDN, KC_LEFT, KC_DOWN, KC_RIGHT, KC_LGUI, MO_FUN,
-                                           MT_SPC,           KC_TRNS, MT_ENT,
-                                           KC_LALT, KC_LCTL,          KC_AMPR, KC_PIPE
-    ),
-    [_NUMBER_SHIFT] = LAYOUT(
-        KC_NO,  KC_PERC, KC_LCBR, KC_LBRC, KC_LPRN, KC_LABK,          KC_PGUP, KC_HOME, KC_UP,   KC_END,   KC_CAPS, KC_NO,
-        KC_LGUI,KC_DLR,  KC_RCBR, KC_RBRC, KC_RPRN, KC_RABK,          KC_PGDN, KC_LEFT, KC_DOWN, KC_RIGHT, KC_LGUI, MO_FUN,
-                                           MT_SPC,           KC_TRNS, MT_ENT,
-                                           KC_LALT, KC_LCTL,          KC_LCTL, KC_LALT
-    ),
-    // FUNCTION
-    // ┌─────┬─────┬─────┬─────┬─────┬─────┐             ┌─────┬─────┬─────┬─────┬─────┬─────┐
-    // │ JIS │ F1  │ F2  │ F3  │ F4  │ F5  │             │ BRU │ VL0 │ VL- │ VL+ │ PSC │ xxx │
-    // ├─────┼─────┼─────┼─────┼─────┼─────┤             ├─────┼─────┼─────┼─────┼─────┼─────┤
-    // │ WIN │ F6  │ F7  │ F8  │ F9  │ F10 │             │ BRD │ |<< │ >|| │ >>| │ WIN │MO_FN│
-    // └─────┴─────┴─────┴─────┴─────┴─────┘             └─────┴─────┴─────┴─────┴─────┴─────┘
-    //                         ┌───────────┐             ┌───────────┐
-    //                         │Space/Shift│             │Enter/Shift│
-    //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │ ALT │ CTL │   │Layer│   │ F11 │ F12 │
-    //                         └─────┴─────┘   └─────┘   └─────┴─────┘
-    // FUNCTION
-    [_FUNCTION] = LAYOUT(
-        KC_NO,  KC_F1, KC_F2, KC_F3, KC_F4,   KC_F5,           KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PSCR, KC_TRNS,
-        KC_LGUI,KC_F6, KC_F7, KC_F8, KC_F9,   KC_F10,          KC_BRID, KC_MPRV, KC_MPLY, KC_MNXT, KC_LGUI, KC_TRNS,
-                                     KC_TRNS,         KC_TRNS, KC_TRNS,
-                                     KC_TRNS, KC_TRNS,         KC_F11,  KC_F12
     ),
     [_O24_NUMBER] = LAYOUT(
         KC_NO,   KC_TILD, KC_1,    KC_2,    KC_3,    KC_COMM,          KC_CIRC, KC_LABK, KC_EQL,  KC_RABK, KC_PERC, KC_NO,
@@ -1053,8 +971,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             return process_o24_thumb_key(&o24_key4_state, record, KC_SPC, _O24_NAV, false);
         case MT_TGL:
             if (record->event.pressed) {
-                mt_tgl_pressed = true;
-                if (record->tap.count > 0 && mt_tgl_can_toggle(record)) {
+                if (mt_tgl_can_toggle(record)) {
                     if (default_layer == _QWERTY) {
                         default_layer_set((layer_state_t)1UL << _GEMINI);
                         layer_move(_GEMINI);
@@ -1068,10 +985,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                         update_lang(kbd_lang);
                     }
                 }
-            } else {
-                mt_tgl_pressed = false;
             }
-            return record->tap.count == 0;
+            return false;
         case TG_JIS:
             return handle_toggle_on_hold(record, &tg_jis_state, toggle_jis_mode);
         case TG_ALT:
