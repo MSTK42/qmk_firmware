@@ -45,6 +45,8 @@ enum custom_keycodes {
     TG_ALT,              // Alternative Layout切替キー
     TG_MJR,              // Mejiro（メジロ式）モード切替キー
     MJR_TGL,
+    MJR_EDGE_TOP,
+    MJR_EDGE_BOTTOM,
     O24_K1,
     O24_K2,
     O24_K3,
@@ -150,6 +152,16 @@ static bool o24_system_layer_active = false;
 static bool o24_key1_recent_tap = false;
 static uint16_t o24_key1_key4_chord_timer = 0;
 static uint16_t o24_key1_last_tap_timer = 0;
+
+typedef struct {
+    bool top_pressed;
+    bool bottom_pressed;
+    bool other_pressed;
+    uint8_t other_down_count;
+} edge_toggle_state_t;
+
+static edge_toggle_state_t o24_edge_toggle_state = {false, false, false, 0};
+static edge_toggle_state_t steno_edge_toggle_state = {false, false, false, 0};
 
 static inline bool is_modifier_keycode(uint16_t keycode) {
     switch (keycode) {
@@ -430,6 +442,157 @@ static void update_lang(uint8_t lang) {
         default:
             break;
     }
+}
+
+static void reset_edge_toggle_state(edge_toggle_state_t *state) {
+    state->top_pressed = false;
+    state->bottom_pressed = false;
+    state->other_pressed = false;
+    state->other_down_count = 0;
+}
+
+static bool edge_toggle_has_edge_down(const edge_toggle_state_t *state) {
+    return state->top_pressed || state->bottom_pressed;
+}
+
+static void toggle_keyboard_mejiro_layer(void) {
+    reset_edge_toggle_state(&o24_edge_toggle_state);
+    reset_edge_toggle_state(&steno_edge_toggle_state);
+
+    if (default_layer == _QWERTY) {
+        default_layer_set((layer_state_t)1UL << _GEMINI);
+        layer_move(_GEMINI);
+        default_layer = _GEMINI;
+        update_lang(is_mejiro_mode ? 2 : stn_lang);
+    } else {
+        mejiro_reset_state();
+        default_layer_set((layer_state_t)1UL << _QWERTY);
+        layer_move(_QWERTY);
+        default_layer = _QWERTY;
+        update_lang(kbd_lang);
+    }
+}
+
+static bool is_o24_edge_toggle_key(uint16_t keycode) {
+    return keycode == MJR_EDGE_TOP || keycode == MJR_EDGE_BOTTOM;
+}
+
+static void update_o24_edge_toggle_other(uint16_t keycode, keyrecord_t *record) {
+    if (is_o24_edge_toggle_key(keycode)) return;
+
+    if (record->event.pressed) {
+        if (o24_edge_toggle_state.other_down_count < 0xFF) {
+            o24_edge_toggle_state.other_down_count++;
+        }
+        if (edge_toggle_has_edge_down(&o24_edge_toggle_state)) {
+            o24_edge_toggle_state.other_pressed = true;
+        }
+    } else if (o24_edge_toggle_state.other_down_count > 0) {
+        o24_edge_toggle_state.other_down_count--;
+    }
+
+    if (!edge_toggle_has_edge_down(&o24_edge_toggle_state) &&
+        o24_edge_toggle_state.other_down_count == 0) {
+        o24_edge_toggle_state.other_pressed = false;
+    }
+}
+
+static bool process_o24_edge_toggle_key(uint16_t keycode, keyrecord_t *record) {
+    bool is_top = (keycode == MJR_EDGE_TOP);
+
+    if (record->event.pressed) {
+        if (is_top) {
+            o24_edge_toggle_state.top_pressed = true;
+        } else {
+            o24_edge_toggle_state.bottom_pressed = true;
+        }
+        if (o24_edge_toggle_state.other_down_count > 0) {
+            o24_edge_toggle_state.other_pressed = true;
+        }
+        return false;
+    }
+
+    bool exact_edge_chord =
+        o24_edge_toggle_state.top_pressed &&
+        o24_edge_toggle_state.bottom_pressed &&
+        !o24_edge_toggle_state.other_pressed &&
+        o24_edge_toggle_state.other_down_count == 0;
+
+    if (exact_edge_chord) {
+        reset_edge_toggle_state(&o24_edge_toggle_state);
+        toggle_keyboard_mejiro_layer();
+        return false;
+    }
+
+    if (is_top) {
+        o24_edge_toggle_state.top_pressed = false;
+    } else {
+        o24_edge_toggle_state.bottom_pressed = false;
+    }
+    if (!edge_toggle_has_edge_down(&o24_edge_toggle_state) &&
+        o24_edge_toggle_state.other_down_count == 0) {
+        reset_edge_toggle_state(&o24_edge_toggle_state);
+    }
+    return false;
+}
+
+static bool process_steno_edge_toggle_key(uint16_t keycode, keyrecord_t *record) {
+    bool is_top = (keycode == STN_DR);
+    bool is_bottom = (keycode == STN_ZR);
+
+    if (!is_top && !is_bottom) {
+        if (record->event.pressed) {
+            if (steno_edge_toggle_state.other_down_count < 0xFF) {
+                steno_edge_toggle_state.other_down_count++;
+            }
+            if (edge_toggle_has_edge_down(&steno_edge_toggle_state)) {
+                steno_edge_toggle_state.other_pressed = true;
+            }
+        } else if (steno_edge_toggle_state.other_down_count > 0) {
+            steno_edge_toggle_state.other_down_count--;
+        }
+
+        if (!edge_toggle_has_edge_down(&steno_edge_toggle_state) &&
+            steno_edge_toggle_state.other_down_count == 0) {
+            steno_edge_toggle_state.other_pressed = false;
+        }
+        return false;
+    }
+
+    if (record->event.pressed) {
+        if (is_top) {
+            steno_edge_toggle_state.top_pressed = true;
+        } else {
+            steno_edge_toggle_state.bottom_pressed = true;
+        }
+        if (steno_edge_toggle_state.other_down_count > 0) {
+            steno_edge_toggle_state.other_pressed = true;
+        }
+        return false;
+    }
+
+    bool exact_edge_chord =
+        steno_edge_toggle_state.top_pressed &&
+        steno_edge_toggle_state.bottom_pressed &&
+        !steno_edge_toggle_state.other_pressed &&
+        steno_edge_toggle_state.other_down_count == 0;
+
+    if (exact_edge_chord) {
+        reset_edge_toggle_state(&steno_edge_toggle_state);
+        toggle_keyboard_mejiro_layer();
+        return true;
+    }
+
+    if (is_top) {
+        steno_edge_toggle_state.top_pressed = false;
+    } else {
+        steno_edge_toggle_state.bottom_pressed = false;
+    }
+    if (!edge_toggle_has_edge_down(&steno_edge_toggle_state) &&
+        steno_edge_toggle_state.other_down_count == 0) {
+        reset_edge_toggle_state(&steno_edge_toggle_state);
+    }
+    return false;
 }
 
 bool combo_fifo_custom_action(uint16_t keycode, bool shifted, bool needs_unshift, bool is_hold) {
@@ -801,13 +964,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         ┌───────────┐             ┌───────────┐
     //                         │     #     │             │     #     │
     //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │  A  │  O  │   │Layer│   │  E  │  U  │
+    //                         │  A  │  O  │   │     │   │  E  │  U  │
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     // GEMINI
     [_GEMINI] = LAYOUT(
         STN_N1, STN_S1, STN_TL, STN_PL, STN_HL, STN_ST1,         STN_ST3, STN_FR, STN_PR, STN_LR, STN_TR, STN_DR,
         STN_N2, STN_S2, STN_KL, STN_WL, STN_RL, STN_ST2,         STN_ST4, STN_RR, STN_BR, STN_GR, STN_SR, STN_ZR,
-                                        STN_N3,          MT_TGL, STN_N4,
+                                        STN_N3,          KC_NO,  STN_N4,
                                         STN_A,  STN_O,           STN_E,   STN_U
     ),
     // QWERTY
@@ -819,7 +982,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         ┌───────────┐             ┌───────────┐
     //                         │Space/Shift│             │Enter/Shift│
     //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │ ALT │ CTL │   │Layer│   │Eisu @ Kana│
+    //                         │ ALT │ CTL │   │     │   │Eisu @ Kana│
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     // QWERTY Shifted
     // ┌─────┬─────┬─────┬─────┬─────┬─────┐             ┌─────┬─────┬─────┬─────┬─────┬─────┐
@@ -830,18 +993,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //                         ┌───────────┐             ┌───────────┐
     //                         │Space/Shift│             │Enter/Shift│
     //                         ├─────┬─────┤   ┌─────┐   ├─────┬─────┤
-    //                         │ ALT │ CTL │   │Layer│   │  !  │  ?  │
+    //                         │ ALT │ CTL │   │     │   │  !  │  ?  │
     //                         └─────┴─────┘   └─────┘   └─────┴─────┘
     [_QWERTY] = LAYOUT(
-        KC_NO,  KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_NO,
-        KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_NO,
-                                  KC_LNG2,          MT_TGL, KC_LNG1,
+        KC_NO,  KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    MJR_EDGE_TOP,
+        KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_COMM, KC_DOT, KC_SLSH, MJR_EDGE_BOTTOM,
+                                  KC_LNG2,          KC_NO,  KC_LNG1,
                                   O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     [_QWERTY_SHIFT] = LAYOUT(
-        KC_NO,  KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    KC_NO,
-        KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_LABK, KC_RABK,KC_QUES, KC_NO,
-                                  KC_LNG2,          MT_TGL, KC_LNG1,
+        KC_NO,  KC_Q, KC_W, KC_E, KC_R, KC_T,               KC_Y, KC_U, KC_I,    KC_O,   KC_P,    MJR_EDGE_TOP,
+        KC_NO,  KC_Z, KC_X, KC_C, KC_V, KC_B,               KC_N, KC_M, KC_LABK, KC_RABK,KC_QUES, MJR_EDGE_BOTTOM,
+                                  KC_LNG2,          KC_NO,  KC_LNG1,
                                   O24_KEY1, O24_KEY2,       O24_KEY3, O24_KEY4
     ),
     [_O24_NUMBER] = LAYOUT(
@@ -883,6 +1046,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
 
     if (is_mejiro_mode && get_highest_layer(layer_state | default_layer_state) == _GEMINI && is_stn_key(keycode)) {
+        if (process_steno_edge_toggle_key(keycode, record)) {
+            return false;
+        }
         if (record->event.pressed) {
             mejiro_on_press(keycode);
         } else {
@@ -892,6 +1058,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             }
         }
         return false;
+    }
+
+    if (is_o24_keyboard_layer(get_highest_layer(layer_state | default_layer_state))) {
+        if (is_o24_edge_toggle_key(keycode)) {
+            return process_o24_edge_toggle_key(keycode, record);
+        }
+        update_o24_edge_toggle_other(keycode, record);
     }
 
     if (is_combo_candidate(keycode)) {
@@ -972,18 +1145,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case MT_TGL:
             if (record->event.pressed) {
                 if (mt_tgl_can_toggle(record)) {
-                    if (default_layer == _QWERTY) {
-                        default_layer_set((layer_state_t)1UL << _GEMINI);
-                        layer_move(_GEMINI);
-                        default_layer = _GEMINI;
-                        update_lang(is_mejiro_mode ? 2 : stn_lang);
-                    } else {
-                        mejiro_reset_state();
-                        default_layer_set((layer_state_t)1UL << _QWERTY);
-                        layer_move(_QWERTY);
-                        default_layer = _QWERTY;
-                        update_lang(kbd_lang);
-                    }
+                    toggle_keyboard_mejiro_layer();
                 }
             }
             return false;
