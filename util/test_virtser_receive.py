@@ -51,6 +51,7 @@ def main():
 #define TIME_IMMEDIATE 0
 #define TIME_INFINITE -1
 #define USB_ENDPOINT_OUT_CDC_DATA 0
+#define USB_ENDPOINT_IN_CDC_DATA 0
 #define osalDbgCheck(x) assert(x)
 #define osalSysLock() ((void)0)
 #define osalSysUnlock() ((void)0)
@@ -62,6 +63,7 @@ static int active = USB_ACTIVE;
 static uint8_t output[1024];
 static size_t output_length;
 static int usbGetDriverStateI(void *driver) { (void)driver; return active; }
+static void flush_report_buffered(int endpoint, bool force) { (void)endpoint; (void)force; }
 static size_t ibqReadTimeout(fake_queue_t *queue, uint8_t *data, size_t size, sysinterval_t timeout) {
     (void)timeout;
     size_t available = queue->length - queue->position;
