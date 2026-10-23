@@ -1,0 +1,47 @@
+name: Build Mejiro31 mato hybrid
+
+on:
+  pull_request:
+    paths:
+      - 'keyboards/jeebis/mejiro31/**'
+      - 'util/test_mejiro31_mato.py'
+      - '.github/workflows/build_mejiro31_mato.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/qmk/qmk_cli
+    steps:
+      - name: Checkout firmware
+        uses: actions/checkout@v6
+      - name: Trust this checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Install Python dependencies
+        run: pip3 install -r requirements.txt
+      - name: Deploy QMK submodules
+        run: qmk git-submodule -f
+      - name: Test mato input and mode transitions
+        run: python3 util/test_mejiro31_mato.py
+      - name: Build mato and Mejiro hybrid
+        run: qmk compile -kb jeebis/mejiro31 -km jp_mato
+      - name: Build original O24 preset
+        run: python3 keyboards/jeebis/mejiro31/keymaps/jp_default/build_firmware_presets.py mejiro31_jp_o24
+      - name: Package verified build outputs
+        shell: bash
+        run: |
+          mkdir -p .build/mato-export
+          cp jeebis_mejiro31_jp_mato.uf2 .build/mato-export/mejiro31_jp_o24_mato_hybrid.uf2
+          cp .build/export/mejiro31_jp_o24.uf2 .build/mato-export/mejiro31_jp_o24_original.uf2
+          git rev-parse HEAD > .build/mato-export/source-commit.txt
+          cd .build/mato-export
+          sha256sum *.uf2 > SHA256SUMS.txt
+      - name: Upload firmware
+        uses: actions/upload-artifact@v6
+        with:
+          name: mejiro31-mato-hybrid
+          path: .build/mato-export/*
+          if-no-files-found: error
