@@ -55,7 +55,7 @@ void keyboard_post_init_user(void) {
     alt_jp_layout = (alt_layout_def_t)ALT_LAYOUT(o24);
     legacy_keyboard_post_init_user();
     mato_init(&mato, mato_emit);
-    // Deliberately boot in the previous O24 mode; no EEPROM migration or writes.
+    // Boot in O24; no new EEPROM schema or mato persistence.
     mato_enabled = false;
 }
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
