@@ -3,6 +3,8 @@
 通常入力をmato中心にし、設定画面のキー図から直接変更するプロファイルです。
 JEEBIS27/qmk_firmware `af77bf67ec664c1718ce3d61b884d63ff1cc7fb5` を土台に、
 現行の共通Mejiro Engine・辞書編集・録音機能・Vial WebHIDを使います。
+レビュー用PRの比較先は、この公式コミットを固定した `codex/mejiro31-upstream-20261103`
+です。既存masterと旧hybridの履歴・成果物を保持したまま移植差分を確認できます。
 
 ## 操作
 
