@@ -28,6 +28,7 @@ typedef struct {
     uint32_t         literal_symbol_layers; // Symbols on explicit Shift faces are already selected.
     uint8_t          language;
     bool             alt_enabled, jis_host;
+    bool             mato_shift_pairs; // Direct symbols retain the author's JIS Shift pairs.
 } mji_layout_config_t;
 
 // Pure resolution: no queue, OS modifiers, QMK encodings or global variables.

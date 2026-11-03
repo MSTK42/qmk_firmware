@@ -1,0 +1,401 @@
+{
+  "schema_version": 1,
+  "name": "mato式",
+  "author": "mato_kb",
+  "source_date": "2024-04-01",
+  "verified_date": "2026-10-23",
+  "source_article": "https://note.com/mato_kb/n/nf57efe5d6ca0",
+  "method": "Manual visual transcription of all seven original author diagrams viewed directly in Chrome; article text cross-checked. QMK aliases are implementation translations, not distributed author source.",
+  "position_convention": "L/R = hand; first digit 0=top,1=bottom; second digit is 0..4 from the viewer left to right. LT0/LT1 and RT0/RT1 are each hand thumb keys from viewer left to right.",
+  "positions": [
+    "L00",
+    "L01",
+    "L02",
+    "L03",
+    "L04",
+    "R00",
+    "R01",
+    "R02",
+    "R03",
+    "R04",
+    "L10",
+    "L11",
+    "L12",
+    "L13",
+    "L14",
+    "R10",
+    "R11",
+    "R12",
+    "R13",
+    "R14",
+    "LT0",
+    "LT1",
+    "RT0",
+    "RT1"
+  ],
+  "layers": [
+    {
+      "id": 0,
+      "name": "base",
+      "source_image": "https://assets.st-note.com/img/1711902594247-ejsQAIUY3K.png?width=1200",
+      "visually_inspected": true,
+      "keys": {
+        "L00": "KC_L",
+        "L01": "KC_W",
+        "L02": "KC_K",
+        "L03": "KC_R",
+        "L04": "KC_P",
+        "R00": "KC_TAB",
+        "R01": "KC_U",
+        "R02": "KC_O",
+        "R03": "KC_Y",
+        "R04": "JP_MINS",
+        "L10": "KC_H",
+        "L11": "KC_S",
+        "L12": "KC_T",
+        "L13": "KC_N",
+        "L14": "KC_M",
+        "R10": "KC_BSPC",
+        "R11": "KC_A",
+        "R12": "KC_E",
+        "R13": "KC_I",
+        "R14": "JP_COMM",
+        "LT0": "HOLD_MO2_TAP_ZKHK",
+        "LT1": "HOLD_MO3_TAP_SPACE",
+        "RT0": "HOLD_MO4_TAP_ENTER",
+        "RT1": "MO1"
+      }
+    },
+    {
+      "id": 1,
+      "name": "consonant_shift",
+      "source_image": "https://assets.st-note.com/img/1711902608277-DOwVZTxl5G.png?width=1200",
+      "visually_inspected": true,
+      "keys": {
+        "L00": "KC_X",
+        "L01": "KC_V",
+        "L02": "KC_G",
+        "L03": "KC_F",
+        "L04": "KC_Q",
+        "R00": "KC_ESC",
+        "R01": "KC_U",
+        "R02": "KC_O",
+        "R03": "KC_Y",
+        "R04": "JP_SLSH",
+        "L10": "KC_B",
+        "L11": "KC_Z",
+        "L12": "KC_D",
+        "L13": "KC_C",
+        "L14": "KC_J",
+        "R10": "KC_DEL",
+        "R11": "KC_A",
+        "R12": "KC_E",
+        "R13": "KC_I",
+        "R14": "JP_DOT",
+        "LT0": "SHIFT",
+        "LT1": "SHIFT_SPACE",
+        "RT0": "BLANK",
+        "RT1": "TRANSPARENT"
+      }
+    },
+    {
+      "id": 2,
+      "name": "numbers_symbols",
+      "source_image": "https://assets.st-note.com/img/1711902621757-8hkiC9H0Tc.png?width=1200",
+      "visually_inspected": true,
+      "keys": {
+        "L00": "JP_BSLS",
+        "L01": "JP_YEN",
+        "L02": "JP_COLN",
+        "L03": "JP_SCLN",
+        "L04": "BLANK",
+        "R00": "BLANK",
+        "R01": "JP_AT",
+        "R02": "JP_LBRC",
+        "R03": "JP_RBRC",
+        "R04": "JP_CIRC",
+        "L10": "KC_1",
+        "L11": "KC_2",
+        "L12": "KC_3",
+        "L13": "KC_4",
+        "L14": "KC_5",
+        "R10": "KC_6",
+        "R11": "KC_7",
+        "R12": "KC_8",
+        "R13": "KC_9",
+        "R14": "KC_0",
+        "LT0": "TRANSPARENT",
+        "LT1": "BLANK",
+        "RT0": "SHIFT_ENTER",
+        "RT1": "SHIFT"
+      }
+    },
+    {
+      "id": 3,
+      "name": "shortcuts_navigation",
+      "source_image": "https://assets.st-note.com/img/1711902633702-13Xp9V6zi6.png?width=1200",
+      "visually_inspected": true,
+      "keys": {
+        "L00": "BLANK",
+        "L01": "BLANK",
+        "L02": "BLANK",
+        "L03": "BLANK",
+        "L04": "BLANK",
+        "R00": "BLANK",
+        "R01": "BLANK",
+        "R02": "KC_UP",
+        "R03": "BLANK",
+        "R04": "BLANK",
+        "L10": "CTRL_Z",
+        "L11": "CTRL_X",
+        "L12": "CTRL_C",
+        "L13": "CTRL_V",
+        "L14": "BLANK",
+        "R10": "BLANK",
+        "R11": "KC_LEFT",
+        "R12": "KC_DOWN",
+        "R13": "KC_RIGHT",
+        "R14": "BLANK",
+        "LT0": "BLANK",
+        "LT1": "TRANSPARENT",
+        "RT0": "BLANK",
+        "RT1": "SHIFT"
+      }
+    },
+    {
+      "id": 4,
+      "name": "function",
+      "source_image": "https://assets.st-note.com/img/1711902643478-GheCSOAFA6.png?width=1200",
+      "visually_inspected": true,
+      "keys": {
+        "L00": "KC_F11",
+        "L01": "KC_F12",
+        "L02": "KC_F13",
+        "L03": "KC_F14",
+        "L04": "KC_F15",
+        "R00": "KC_F16",
+        "R01": "KC_F17",
+        "R02": "KC_F18",
+        "R03": "KC_F19",
+        "R04": "KC_F20",
+        "L10": "KC_F1",
+        "L11": "KC_F2",
+        "L12": "KC_F3",
+        "L13": "KC_F4",
+        "L14": "KC_F5",
+        "R10": "KC_F6",
+        "R11": "KC_F7",
+        "R12": "KC_F8",
+        "R13": "KC_F9",
+        "R14": "KC_F10",
+        "LT0": "BLANK",
+        "LT1": "BLANK",
+        "RT0": "TRANSPARENT",
+        "RT1": "BLANK"
+      }
+    }
+  ],
+  "modifier_combos": [
+    {
+      "keys": [
+        "L00",
+        "L10"
+      ],
+      "modifier": "SHIFT",
+      "source_image": "https://assets.st-note.com/img/1711903576320-vka2epAMYM.png?width=1200",
+      "visually_inspected": true
+    },
+    {
+      "keys": [
+        "L01",
+        "L11"
+      ],
+      "modifier": "GUI",
+      "source_image": "https://assets.st-note.com/img/1711903576320-vka2epAMYM.png?width=1200",
+      "visually_inspected": true
+    },
+    {
+      "keys": [
+        "L02",
+        "L12"
+      ],
+      "modifier": "ALT",
+      "source_image": "https://assets.st-note.com/img/1711903576320-vka2epAMYM.png?width=1200",
+      "visually_inspected": true
+    },
+    {
+      "keys": [
+        "L03",
+        "L13"
+      ],
+      "modifier": "CTRL",
+      "source_image": "https://assets.st-note.com/img/1711903576320-vka2epAMYM.png?width=1200",
+      "visually_inspected": true
+    },
+    {
+      "keys": [
+        "R01",
+        "R11"
+      ],
+      "modifier": "CTRL",
+      "source_image": "https://assets.st-note.com/img/1711903576320-vka2epAMYM.png?width=1200",
+      "visually_inspected": true
+    },
+    {
+      "keys": [
+        "R02",
+        "R12"
+      ],
+      "modifier": "ALT",
+      "source_image": "https://assets.st-note.com/img/1711903576320-vka2epAMYM.png?width=1200",
+      "visually_inspected": true
+    },
+    {
+      "keys": [
+        "R03",
+        "R13"
+      ],
+      "modifier": "GUI",
+      "source_image": "https://assets.st-note.com/img/1711903576320-vka2epAMYM.png?width=1200",
+      "visually_inspected": true
+    },
+    {
+      "keys": [
+        "R04",
+        "R14"
+      ],
+      "modifier": "SHIFT",
+      "source_image": "https://assets.st-note.com/img/1711903576320-vka2epAMYM.png?width=1200",
+      "visually_inspected": true
+    }
+  ],
+  "thumb_legends": {
+    "LT0": {
+      "upper": "MO(2)",
+      "lower": "半/全",
+      "inference": "hold layer2 / tap Zenkaku-Hankaku"
+    },
+    "LT1": {
+      "upper": "MO(3)",
+      "lower": "Space",
+      "inference": "hold layer3 / tap Space"
+    },
+    "RT0": {
+      "upper": "MO(4)",
+      "lower": "Enter",
+      "inference": "hold layer4 / tap Enter"
+    },
+    "RT1": {
+      "upper": "MO(1)",
+      "lower": null,
+      "inference": "momentary layer1; no tap output shown"
+    }
+  },
+  "symbol_legends": {
+    "JP_MINS": {
+      "normal": "-",
+      "shift": "="
+    },
+    "JP_COMM": {
+      "normal": ",",
+      "shift": "<"
+    },
+    "JP_SLSH": {
+      "normal": "/",
+      "shift": "?"
+    },
+    "JP_DOT": {
+      "normal": ".",
+      "shift": ">"
+    },
+    "JP_BSLS": {
+      "normal": "\\",
+      "shift": "_",
+      "note": "First of two distinct JIS backslash-shaped keys; standard JP_BSLS/KC_INT1 alias inferred from its underscore shifted legend."
+    },
+    "JP_YEN": {
+      "normal": "\\",
+      "shift": "|",
+      "note": "Second of two distinct JIS backslash-shaped keys; JP_YEN/KC_INT3, rendered as backslash in author font."
+    },
+    "JP_COLN": {
+      "normal": ":",
+      "shift": "*"
+    },
+    "JP_SCLN": {
+      "normal": ";",
+      "shift": "+"
+    },
+    "JP_AT": {
+      "normal": "@",
+      "shift": "`"
+    },
+    "JP_LBRC": {
+      "normal": "[",
+      "shift": "{"
+    },
+    "JP_RBRC": {
+      "normal": "]",
+      "shift": "}"
+    },
+    "JP_CIRC": {
+      "normal": "^",
+      "shift": "~"
+    }
+  },
+  "optional_nasal_extension": {
+    "enabled_by_author": false,
+    "default_recommendation": "Do not enable without a separate user request.",
+    "source_image": "https://assets.st-note.com/img/1711904126262-iZNVwQTzUW.png?width=1200",
+    "visually_inspected": true,
+    "layer": 1,
+    "replacements": {
+      "R01": "UNN",
+      "R02": "ONN",
+      "R03": "NN",
+      "R11": "ANN",
+      "R12": "ENN",
+      "R13": "INN"
+    }
+  },
+  "source_confirmed": [
+    "24 keys, two main rows, left consonants and right vowels; two thumb keys per hand required.",
+    "Layer1 keeps right vowels unchanged; right-thumb MO(1) can be held through daijoubu.",
+    "Modifier combos use vertically adjacent pairs; Shift is assigned to little fingers.",
+    "Article says (Z) means Ctrl+Z.",
+    "Optional nasal extension is shown but the author does not use it."
+  ],
+  "not_specified_by_author": [
+    "Combo timing in ms, first-release versus all-release policy, held-key rollover, combo precedence.",
+    "Tap/hold timeout and interrupted-tap behavior for the three dual-legend thumb keys.",
+    "Whether blank cells are disabled or transparent in the real author firmware.",
+    "Whether left/right hand modifier combos emit left or right USB modifier codes, and whether combos work on every auxiliary layer.",
+    "Exact moment at which a modifier combo starts/stops and interaction with layer changes."
+  ],
+  "implementation_recommendations_not_source": [
+    "Add a separate mato mode. Keep existing O24 and Mejiro maps and behavior untouched when that mode is off.",
+    "Disable O24 compression combos while mato is active; mato vertical pairs mean modifiers, not compressed home-row letters.",
+    "Preserve mato core layer1 access: replacing only letters while keeping all O24 thumb behavior loses half the consonants.",
+    "Map 20 main positions and four required thumbs into Mejiro31; seven physical keys remain for mode switching and optional extra controls.",
+    "Choose BLANK behavior, tap-hold thresholds, modifier side, release rules explicitly and validate; do not present those choices as author-supplied.",
+    "Do not enable optional nasal expansion by default."
+  ],
+  "additional_references": [
+    {
+      "url": "https://note.com/mato_kb/n/n3690805cb999",
+      "purpose": "Author QMK hardware/layout macro: main 5x2 per hand plus two thumbs per hand."
+    },
+    {
+      "url": "https://note.com/mato_kb/n/nb29722bcb239",
+      "purpose": "2026-04-07 author-endorsed Keyflow Analyzer trial announcement."
+    },
+    {
+      "url": "https://keyflow.koyasi777.com/",
+      "purpose": "Browser trial, not author firmware."
+    },
+    {
+      "local": "work/qmk_firmware/quantum/keymap_extras/keymap_japanese.h",
+      "purpose": "Checked JP_ to KC_ aliases for JIS punctuation."
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+name: Build Mejiro31 mato direct
+
+on:
+  pull_request:
+    paths:
+      - 'keyboards/jeebis/mejiro31/**'
+      - '.github/workflows/build_mejiro31_mato_direct.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RUSTUP_TOOLCHAIN: 1.88.0
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the ARM and Rust build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi python3-venv
+          rustup toolchain install 1.88.0 --profile minimal
+          rustup target add --toolchain 1.88.0 thumbv6m-none-eabi
+
+      - name: Test source provenance and mato build metadata
+        run: |
+          python3 keyboards/jeebis/mejiro31/keymaps/jp_mato/generate_defaults.py --check
+          python3 keyboards/jeebis/mejiro31/tests/test_build_vial.py
+          python3 keyboards/jeebis/mejiro31/tests/test_mato_build_metadata.py
+
+      - name: Prepare pinned Vial and shared Mejiro Engine
+        run: python3 keyboards/jeebis/mejiro31/build_vial.py --prepare-only
+
+      - name: Install QMK and ELF verification dependencies
+        run: |
+          python3 -m venv .build/vial-python
+          .build/vial-python/bin/pip install qmk pyelftools unicorn -r .build/mejiro31-vial/vial/requirements.txt
+          echo "$PWD/.build/vial-python/bin" >> "$GITHUB_PATH"
+
+      - name: Run ordinary JP and EN regression tests
+        run: |
+          ln -s "$PWD/.build/mejiro31-vial/Mejiro_Engine" ../Mejiro_Engine
+          sh keyboards/jeebis/mejiro31/tests/run.sh 2>&1 | tee .build/ordinary-regression.log
+
+      - name: Run the prepared JP and EN Vial protocol tests
+        run: |
+          python3 keyboards/jeebis/mejiro31/tests/run_vial_tests.py --source-dir .build/mejiro31-vial/vial 2>&1 | tee .build/vial-regression.log
+
+      - name: Run mato defaults, input and Vial protocol tests
+        run: |
+          python3 keyboards/jeebis/mejiro31/tests/run_mato_tests.py --source-dir .build/mejiro31-vial/vial 2>&1 | tee .build/mato-regression.log
+
+      - name: Build mato and verify linked USB descriptors and RP2040 UF2
+        run: |
+          python3 keyboards/jeebis/mejiro31/build_vial.py --keymap jp_mato 2>&1 | tee .build/mato-build.log
+
+      - name: Verify actual ARM initialization, stack bounds and shared Engine
+        run: |
+          python3 keyboards/jeebis/mejiro31/tests/test_arm_boot.py .build/mejiro31-vial/vial/.build/jeebis_mejiro31_jp_mato.elf 2>&1 | tee .build/mato-arm.log
+
+      - name: Package firmware, defaults, provenance and test evidence
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, shutil, subprocess
+          build = pathlib.Path('.build')
+          output = build / 'mato-direct-artifacts'
+          output.mkdir()
+          for name in ('mejiro31_jp_mato.uf2', 'mejiro31_jp_mato.uf2.sha256',
+                       'mejiro31_jp_mato.uf2.json', 'mejiro31_jp_mato.defaults.json',
+                       'ordinary-regression.log', 'vial-regression.log',
+                       'mato-regression.log', 'mato-build.log', 'mato-arm.log'):
+              shutil.copyfile(build / name, output / name)
+          shutil.copyfile(build / 'mejiro31-vial/vial/.build/jeebis_mejiro31_jp_mato.elf',
+                          output / 'mejiro31_jp_mato.elf')
+          revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          (output / 'source-commit.txt').write_text(revision + '\n')
+          metadata = json.loads((output / 'mejiro31_jp_mato.uf2.json').read_text())
+          assert metadata['profile'] == 'mato' and metadata['profile_id'] == 2
+          assert metadata['direct_keymap'] is True
+          assert metadata['sources']['keyboard_head'] == revision
+          assert metadata['sources']['keyboard_dirty'] is False
+          defaults = output / metadata['defaults_file']
+          assert hashlib.sha256(defaults.read_bytes()).hexdigest() == metadata['defaults_sha256']
+          (output / 'verification.json').write_text(json.dumps({
+              'source_commit': revision, 'profile': 'mato',
+              'host_regressions': 'passed', 'vial_jp_en_regressions': 'passed',
+              'mato_regressions': 'passed', 'linked_usb_descriptors': 'passed',
+              'arm_execution_and_stack': 'passed', 'uf2_structure': 'passed',
+              'linked_defaults_export': 'passed', 'physical_keyboard_tested': False,
+              'usb_device_tested': False, 'ime_tested': False,
+              'sources': metadata['sources']
+          }, indent=2) + '\n')
+          (output / 'SHA256SUMS.txt').write_text(''.join(
+              hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.name + '\n'
+              for p in sorted(output.iterdir()) if p.is_file()))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mejiro31-mato-direct
+          path: .build/mato-direct-artifacts/*
+          include-hidden-files: true
+          if-no-files-found: error
