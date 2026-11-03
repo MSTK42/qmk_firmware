@@ -31,9 +31,34 @@ static mji_key_t jis_symbol(uint16_t code, bool shifted) {
     return punctuation[code - 0x2d][shifted];
 }
 
+// A direct mato key names its unheld-Shift character, even when that character
+// needs Shift in US QMK notation (e.g. ':' or '@'). A held Shift selects the
+// author's JIS physical pair: ':' -> '*', '@' -> '`', '-' -> '='.
+static mji_stroke_t mato_symbol(const mji_layout_config_t *c, mji_key_t key, uint8_t mods) {
+    mji_key_t host = key.code == 0x89 ? (mji_key_t){0x89, key.mods & SHIFT} : jis_symbol(key.code, (key.mods & SHIFT) != 0);
+    if (mods & SHIFT) host.mods |= LSFT;
+    if (!c->jis_host) {
+        // Invert the semantic-to-JIS table after selecting the JIS pair, so
+        // choosing a US host does not silently change the author's symbols.
+        mji_key_t semantic = {0, 0}; // JIS Shift+0 has no printable counterpart.
+        if (host.code == 0x89 && !host.mods) semantic.code = 0x31; // Yen on a US host is backslash.
+        for (uint16_t code = 0x1e; code <= 0x38; code++) {
+            if (!symbol(code) || code == 0x32) continue;
+            for (uint8_t shift = 0; shift < 2; shift++) {
+                mji_key_t candidate = jis_symbol(code, shift != 0);
+                if (candidate.code == host.code && candidate.mods == host.mods)
+                    semantic = (mji_key_t){code, shift ? LSFT : 0};
+            }
+        }
+        host = semantic;
+    }
+    return (mji_stroke_t){host.code, (key.mods & ~SHIFT) | host.mods, SHIFT};
+}
+
 mji_stroke_t mji_layout_resolve(const mji_layout_config_t *c, mji_key_t key, uint8_t layer, uint8_t mods) {
     // JIS Alt+Zenkaku/Hankaku is a shortcut, not a literal US grave symbol.
     if (c->jis_host && key.code == 0x35 && ((mods | key.mods) & 0x44)) return (mji_stroke_t){key.code, key.mods, 0};
+    if (c->mato_shift_pairs && ((symbol(key.code) && key.code != 0x32) || key.code == 0x89)) return mato_symbol(c, key, mods);
     bool literal = layer < 32 && (c->literal_symbol_layers & (UINT32_C(1) << layer)) && symbol(key.code);
     bool    remapped       = false;
     uint8_t explicit_shift = key.mods & SHIFT;

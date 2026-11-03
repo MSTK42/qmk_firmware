@@ -45,7 +45,7 @@ static void web_reply(uint8_t *data, uint8_t status) {
     data[12] = input.layout.jis_host | (input.layout.alt_enabled << 1) | (mejiro_mode << 2);
     data[13] = web_en_layout;
     data[14] = web_jp_layout;
-    data[15] = MJI_EN_PROFILE;
+    data[15] = MJI_MATO_DIRECT ? 2 : MJI_EN_PROFILE;
     data[16] = DYNAMIC_KEYMAP_LAYER_COUNT;
     data[17] = WEB_LAYOUT_COUNT;
     data[18] = mejiro_first_up_chord_send;
@@ -94,6 +94,9 @@ void raw_hid_receive_kb(uint8_t *data, uint8_t length) {
         return;
     }
     if (data[2] != 1 || data[12] > 7 || data[13] >= WEB_LAYOUT_COUNT || data[14] >= WEB_LAYOUT_COUNT) {
+        web_reply(data, 2); return;
+    }
+    if (MJI_MATO_DIRECT && ((data[12] & 2) || data[13] || data[14])) {
         web_reply(data, 2); return;
     }
     if (!vial_unlocked) { web_reply(data, 1); return; }

@@ -2,6 +2,7 @@
 """Build site-compatible Mejiro31 UF2s from this checkout using pinned Vial core."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -40,6 +41,51 @@ def write_build_metadata(uf2, sources, variant, digest):
     metadata = {'format': 'mejiro31-build-v1', 'filename': uf2.name,
                 'sha256': digest, 'sources': sources, **variant}
     uf2.with_suffix('.uf2.json').write_text(json.dumps(metadata, indent=2) + '\n')
+
+
+def keyboard_source_fingerprint(keyboard):
+    """Hash exactly the source tree copied into Vial, including local edits."""
+    digest = hashlib.sha256()
+    for path in sorted(Path(keyboard).rglob('*')):
+        relative = path.relative_to(keyboard)
+        if (not path.is_file() or any(part in ('target', '__pycache__') for part in relative.parts)
+                or path.name.endswith('.uf2')):
+            continue
+        digest.update(relative.as_posix().encode() + b'\0' + path.read_bytes() + b'\0')
+    return digest.hexdigest()
+
+
+def expand_default_storage(raw):
+    """Decode the linked 16x48 storage table into the editor's 12x58 maps."""
+    if len(raw) != 16 * 48 * 2:
+        raise ValueError('Expected sixteen 4x12 uint16_t default storage maps')
+    values = struct.unpack('<768H', raw)
+    storage = [list(values[i:i + 48]) for i in range(0, len(values), 48)]
+    result = []
+    for layer in range(12):
+        hold = int(layer >= 6)
+        logical_layer = layer % 6
+        extra = storage[12 + hold][logical_layer * 6:logical_layer * 6 + 6]
+        thumbs = storage[14 + hold][logical_layer * 4:logical_layer * 4 + 4]
+        result.append(storage[layer] + extra + thumbs)
+    return result
+
+
+def export_mato_defaults(elf, output, sources):
+    """Export defaults from the same linked ELF as the delivered firmware."""
+    module_spec = importlib.util.spec_from_file_location('mejiro_usb_elf', KB / 'tests/test_plover_usb.py')
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    _, read_symbol = module.elf_symbols(Path(elf).read_bytes())
+    defaults = expand_default_storage(read_symbol('keymaps'))
+    data = {'format': 'mejiro31-mato-defaults-v1', 'profile': 'mato', 'profileId': 2,
+            'directKeymap': True, 'keyCount': 58, 'storageLayers': 16,
+            'rows': 4, 'cols': 12,
+            'layers': ['mato', 'mato MO1', 'Numbers / symbols', 'Navigation', 'Function', 'Steno'],
+            'defaults': defaults, 'sources': sources}
+    raw = (json.dumps(data, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
+    Path(output).write_bytes(raw)
+    return hashlib.sha256(raw).hexdigest()
 
 
 def verify_uf2(path):
@@ -98,7 +144,8 @@ def prepare(work, submodules, engine_source=None):
         shutil.rmtree(dest)
     shutil.copytree(KB, dest, ignore=shutil.ignore_patterns('target', '__pycache__', '*.uf2'))
     for name in ['plover-hid.patch', 'usb-queue-alignment.patch']:
-        patch = (KB / 'keymaps/vial' / name).read_bytes()
+        # Windows checkouts may use CRLF even when Vial's working tree uses LF.
+        patch = (KB / 'keymaps/vial' / name).read_bytes().replace(b'\r\n', b'\n')
         reverse = subprocess.run(['git', 'apply', '--reverse', '--check', '-'], cwd=vial, input=patch, capture_output=True)
         if reverse.returncode:
             subprocess.run(['git', 'apply', '--check', '-'], cwd=vial, input=patch, check=True)
@@ -125,8 +172,11 @@ def prepare(work, submodules, engine_source=None):
     if submodules:
         run('git', 'submodule', 'update', '--init', '--depth', '1', 'lib/chibios', 'lib/chibios-contrib', 'lib/pico-sdk', 'lib/printf', cwd=vial)
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    keyboard_dirty = bool(subprocess.check_output(
+        ['git', 'status', '--porcelain', '--', str(KB.relative_to(ROOT))], cwd=ROOT, text=True).strip())
     marker.write_text(json.dumps({'vial': VIAL_REF, **engine_metadata,
-                                 'keyboard_head': revision}, indent=2) + '\n')
+                                 'keyboard_head': revision, 'keyboard_dirty': keyboard_dirty,
+                                 'keyboard_source_sha256': keyboard_source_fingerprint(KB)}, indent=2) + '\n')
     return vial
 
 
@@ -170,12 +220,18 @@ def main():
         language = profile or {'jp_default': 'jp', 'en_default': 'en'}.get(keymap)
         filename = f'mejiro31_{language}.uf2' if language else f'mejiro31_{keymap}.uf2'
         uf2 = output / filename
+        variant = {'keymap': keymap}
+        if keymap == 'jp_mato':
+            defaults_path = output / 'mejiro31_jp_mato.defaults.json'
+            defaults_sha256 = export_mato_defaults(
+                vial / f'.build/jeebis_mejiro31_{keymap}.elf', defaults_path, sources)
+            variant.update(profile='mato', profile_id=2, direct_keymap=True,
+                           defaults_file=defaults_path.name, defaults_sha256=defaults_sha256)
+        elif profile is not None:
+            variant.update(profile=profile, layout=args.layout)
         shutil.copyfile(vial / f'.build/jeebis_mejiro31_{keymap}.uf2', uf2)
         digest = verify_uf2(uf2)
         uf2.with_suffix('.uf2.sha256').write_text(f'{digest}  {uf2.name}\n')
-        variant = {'keymap': keymap}
-        if profile is not None:
-            variant.update(profile=profile, layout=args.layout)
         write_build_metadata(uf2, sources, variant, digest)
         print(f'Verified site-compatible UF2: {uf2}', flush=True)
         if args.keymap:

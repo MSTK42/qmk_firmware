@@ -35,7 +35,7 @@ typedef struct {
 
 typedef struct {
     uint8_t mods;
-    uint8_t layers[MJI_LAYER_COUNT]; // Newest first; base layer appended last.
+    uint8_t layers[MJI_LAYER_COUNT]; // Newest first (mato: highest first); base last.
     uint8_t layer_count;
 } mji_context_t;
 
@@ -53,10 +53,11 @@ typedef struct {
     uint64_t      sources;
     uint32_t      born, ended, activated, order;
     uint16_t      logical;
+    uint8_t       pressed_layer;
     mji_binding_t binding;
     mji_stroke_t  tap_stroke, hold_stroke;
     mji_state_t   state;
-    bool          released, used, emitted, residual, mods_exposed;
+    bool          released, used, emitted, residual, mods_exposed, binding_resolved;
 } mji_token_t;
 typedef struct {
     uint8_t token;
@@ -81,6 +82,9 @@ typedef struct {
     int16_t             output_target;
     bool                output_is_hold;
     bool                sticky_waiting;
+    // Opt-in mato policy. Set after mji_init; mji_reset preserves it.
+    // Ordinary profiles keep the existing compression and layer semantics.
+    bool                mato_mode;
 } mji_engine_t;
 
 bool mji_init(mji_engine_t *engine, const mji_pair_t *pairs, uint8_t pair_count, mji_timing_t timing, uint8_t base_layer, mji_callbacks_t callbacks, void *user);

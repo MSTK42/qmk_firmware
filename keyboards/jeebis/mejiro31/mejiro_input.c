@@ -23,7 +23,7 @@ static mji_context_t get_context(mji_engine_t *e, bool live) {
         for (uint8_t i = 0; i < MJI_TOKEN_COUNT; ++i) {
             mji_token_t *t = &e->tokens[i];
             if (t->state != MJI_ACTIVE && t->state != MJI_PREPARED) continue;
-            if ((live || t->residual) && t->released) continue;
+            if ((live || e->mato_mode || t->residual) && t->released) continue;
             c.mods |= t->binding.hold_mods;
             if (t->binding.hold_layer != MJI_NO_LAYER && t->activated < before && (best < 0 || t->activated > e->tokens[best].activated)) best = i;
         }
@@ -31,6 +31,18 @@ static mji_context_t get_context(mji_engine_t *e, bool live) {
         mji_token_t *t = &e->tokens[best];
         if (c.layer_count < MJI_LAYER_COUNT - 1) c.layers[c.layer_count++] = t->binding.hold_layer;
         before = t->activated;
+    }
+    if (e->mato_mode) {
+        // Mato's numbered momentary layers take precedence independently of
+        // the order in which their thumbs were pressed. Keep the base last.
+        for (uint8_t i = 1; i < c.layer_count; ++i) {
+            uint8_t layer = c.layers[i], j = i;
+            while (j && c.layers[j - 1] < layer) {
+                c.layers[j] = c.layers[j - 1];
+                --j;
+            }
+            c.layers[j] = layer;
+        }
     }
     c.layers[c.layer_count++] = e->base_layer;
     if (e->sticky_target >= 0) c.mods |= MJI_SHIFT_MASK & UINT8_C(0x02);
@@ -41,14 +53,15 @@ static mji_context_t context(mji_engine_t *e) {
 }
 static uint8_t output_mods(mji_engine_t *e) {
     // Logical Hold is available immediately for lookup. Publish its modifiers
-    // only once used by a successor or held through the initial combo window.
+    // only once used by a successor or held through the profile's threshold.
     uint8_t mods = 0;
     for (uint8_t i = 0; i < MJI_TOKEN_COUNT; ++i) {
         mji_token_t *t = &e->tokens[i];
         if (t->state != MJI_ACTIVE && t->state != MJI_PREPARED) continue;
         if (t->residual && t->released) continue;
         uint32_t end = t->released ? t->ended : e->now;
-        if (!t->binding.tap || t->used || t->mods_exposed || t->residual || elapsed(end, t->born) >= e->timing.combo_ms)
+        uint16_t threshold = e->mato_mode ? e->timing.long_hold_ms : e->timing.combo_ms;
+        if (!t->binding.tap || t->used || t->mods_exposed || t->residual || elapsed(end, t->born) >= threshold)
             mods |= t->binding.hold_mods;
     }
     if (e->sticky_target >= 0) mods |= UINT8_C(0x02);
@@ -169,12 +182,12 @@ static void activate(mji_engine_t *e, uint8_t id) {
     // Waiting Sticky participates in binding lookup, including shifted layouts.
     if (e->sticky_waiting) c.mods |= UINT8_C(0x02);
     uint32_t epoch = e->epoch;
-    if (!prepared) resolve_binding(e, t, &c);
+    if (!prepared && !t->binding_resolved) resolve_binding(e, t, &c);
     if (epoch != e->epoch) return;
     // Every preceding Hold contributes, even if only modifiers and not a layer.
     for (uint8_t i = 0; i < MJI_TOKEN_COUNT; ++i)
         if ((e->tokens[i].state == MJI_ACTIVE || e->tokens[i].state == MJI_PREPARED) && !(e->tokens[i].residual && e->tokens[i].released) && i != id && has_hold(&e->tokens[i])) e->tokens[i].used = true;
-    t->mods_exposed = !!(e->physical & ~t->sources);
+    t->mods_exposed = e->mato_mode ? t->mods_exposed : !!(e->physical & ~t->sources);
     t->activated = ++e->serial;
     t->state     = MJI_ACTIVE;
     if (has_hold(t)) {
@@ -253,6 +266,7 @@ static void merge(mji_engine_t *e, uint8_t a, uint8_t b, uint16_t logical) {
     x->sources |= y->sources;
     x->logical = logical;
     x->state   = MJI_READY;
+    x->binding_resolved = false; // Resolve the combo, not its first letter.
     y->state   = MJI_CANCELLED;
     for (uint8_t p = 0; p < MJI_PHYSICAL_COUNT; ++p)
         if (x->sources & bit(p)) e->owner[p] = a + 1;
@@ -269,6 +283,7 @@ static int pending_pair(mji_engine_t *e, uint8_t id, bool vertical_only) {
         uint8_t      j = e->owner[other] - 1;
         mji_token_t *u = &e->tokens[j];
         if (j == id || u->state != MJI_WAIT || u->residual || u->released || !single(u)) continue;
+        if (e->mato_mode && u->pressed_layer != t->pressed_layer) continue;
         uint32_t delta = older(u->born, t->born) ? t->born - u->born : u->born - t->born;
         if (delta >= e->timing.combo_ms) continue;
         if (best < 0 || pair->priority < e->pairs[best].priority)
@@ -313,10 +328,40 @@ static int start_token(mji_engine_t *e, uint64_t sources, uint16_t logical, uint
     t->order       = ++e->next_order;
     t->residual    = residual;
     t->state       = ready ? MJI_READY : MJI_WAIT;
+    if (e->mato_mode) {
+        mji_context_t c = context(e);
+        if (e->sticky_waiting) c.mods |= UINT8_C(0x02);
+        t->pressed_layer = c.layers[0];
+        resolve_binding(e, t, &c);
+        t->binding_resolved = true;
+    }
     for (uint8_t p = 0; p < MJI_PHYSICAL_COUNT; ++p)
         if (sources & bit(p)) e->owner[p] = id + 1;
     if (!residual && !enqueue(e, id, true)) return -1;
     return id;
+}
+
+// Mato commits earlier ordinary letters before a different next key can
+// change their layer/modifiers. Only a still-eligible partner stays pending.
+static int mato_pending_partner(mji_engine_t *e, uint8_t p, uint32_t now) {
+    mji_context_t c = context(e);
+    for (uint8_t i = 0; i < e->pair_count; ++i) {
+        const mji_pair_t *pair = &e->pairs[i];
+        int other = pair->a == p ? pair->b : pair->b == p ? pair->a : -1;
+        if (other < 0 || !e->owner[other] || !pair_enabled(e, pair)) continue;
+        int id = e->owner[other] - 1;
+        mji_token_t *t = &e->tokens[id];
+        if (t->state == MJI_WAIT && !t->released && !t->residual && single(t) &&
+            t->pressed_layer == c.layers[0] && elapsed(now, t->born) < e->timing.combo_ms)
+            return id;
+    }
+    return -1;
+}
+static void mato_flush_pending(mji_engine_t *e, int except) {
+    for (uint8_t i = 0; i < MJI_TOKEN_COUNT; ++i)
+        if (i != except && e->tokens[i].state == MJI_WAIT && !e->tokens[i].residual)
+            e->tokens[i].state = MJI_READY;
+    drain(e);
 }
 
 bool mji_init(mji_engine_t *e, const mji_pair_t *pairs, uint8_t pair_count, mji_timing_t timing, uint8_t base_layer, mji_callbacks_t callbacks, void *user) {
@@ -386,10 +431,23 @@ void mji_event(mji_engine_t *e, uint8_t p, bool pressed, uint32_t now) {
         return;
     }
     if (pressed) {
+        if (e->mato_mode) {
+            mato_flush_pending(e, mato_pending_partner(e, p, now));
+            if (epoch != e->epoch) return;
+            // Any subsequent press chooses a dual-role key's Hold, even when
+            // that subsequent key is itself awaiting its combo window.
+            for (uint8_t i = 0; i < MJI_TOKEN_COUNT; ++i) {
+                mji_token_t *t = &e->tokens[i];
+                if (t->state == MJI_ACTIVE && !t->released && has_hold(t)) {
+                    t->used = true;
+                    t->mods_exposed = true;
+                }
+            }
+        }
         // A new partner of an already confirmed singleton switches immediately,
         // including horizontal pairs and immature residual singletons.
         int hit = -1, source = -1;
-        for (uint8_t i = 0; i < e->pair_count; ++i) {
+        for (uint8_t i = 0; !e->mato_mode && i < e->pair_count; ++i) {
             const mji_pair_t *pair  = &e->pairs[i];
             int               other = pair->a == p ? pair->b : pair->b == p ? pair->a : -1;
             if (other < 0 || !e->owner[other] || !pair_enabled(e, pair)) continue;
@@ -417,6 +475,12 @@ void mji_event(mji_engine_t *e, uint8_t p, bool pressed, uint32_t now) {
     } else if (e->owner[p]) {
         uint8_t      id = e->owner[p] - 1;
         mji_token_t *t  = &e->tokens[id];
+        if (e->mato_mode && (t->binding.hold_mods || t->tap_stroke.mods || t->hold_stroke.mods)) {
+            // The queued letter must see the modifier which was held at its
+            // press, even when the user releases the modifier first.
+            mato_flush_pending(e, -1);
+            if (epoch != e->epoch) return;
+        }
         if (t->state == MJI_WAIT && t->residual) {
             t->state    = MJI_CANCELLED;
             e->owner[p] = 0;
@@ -432,14 +496,19 @@ void mji_event(mji_engine_t *e, uint8_t p, bool pressed, uint32_t now) {
                 if (t->sources & bit(k)) e->owner[k] = 0;
             close_token(e, id, now);
             if (epoch != e->epoch) return;
-            if (remaining) start_token(e, remaining, first_source(remaining), now, true, false);
+            if (remaining) {
+                if (e->mato_mode)
+                    e->ignored |= remaining; // Consumed until its physical up.
+                else
+                    start_token(e, remaining, first_source(remaining), now, true, false);
+            }
         }
     }
     // A physical successor may still be waiting for its own combo. Expose
     // already active providers now, without waiting for that resolution.
     for (uint8_t i = 0; i < MJI_TOKEN_COUNT; ++i) {
         mji_token_t *t = &e->tokens[i];
-        if (t->state == MJI_ACTIVE && !t->released && (e->physical & ~t->sources))
+        if (!e->mato_mode && t->state == MJI_ACTIVE && !t->released && (e->physical & ~t->sources))
             t->mods_exposed = true;
     }
     drain(e);

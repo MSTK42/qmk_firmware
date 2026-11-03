@@ -24,6 +24,19 @@
 #endif
 #include <string.h>
 
+#ifndef MJI_MATO_DIRECT
+#    define MJI_MATO_DIRECT 0
+#endif
+#if MJI_MATO_DIRECT
+// Keymap-specific timings also apply to the saved-setting fallback.
+#    undef MJI_COMBO_MS
+#    undef MJI_CONTINUATION_MS
+#    undef MJI_LONG_HOLD_MS
+#    define MJI_COMBO_MS 50
+#    define MJI_CONTINUATION_MS 50
+#    define MJI_LONG_HOLD_MS 175
+#endif
+
 // Tap layers 0..5; matching Hold maps are stored at 6..11.
 enum { MJI_QWERTY, MJI_SHIFTED, MJI_NUMBER, MJI_NUMBER_SHIFTED, MJI_FUNCTION, MJI_STENO, MJI_HOLD_OFFSET };
 #ifdef MJI_WEB_VIAL
@@ -33,9 +46,13 @@ enum { MJI_QWERTY, MJI_SHIFTED, MJI_NUMBER, MJI_NUMBER_SHIFTED, MJI_FUNCTION, MJ
 #    define MJI_CUSTOM_BASE SAFE_RANGE
 #    define mji_keycode_at keycode_at_keymap_location
 #endif
-enum { MJI_00 = MJI_CUSTOM_BASE, MJI_000, MJI_MODE, MJI_JIS, MJI_ALT, MJI_MEJIRO, MJI_STICKY };
+enum { MJI_00 = MJI_CUSTOM_BASE, MJI_000, MJI_MODE, MJI_JIS, MJI_ALT, MJI_MEJIRO, MJI_STICKY, MJI_IME };
 
-#include "defaults.h"
+#if MJI_MATO_DIRECT
+#    include "defaults_mato.h"
+#else
+#    include "defaults.h"
+#endif
 
 // Physical coordinates, independent of key assignments or language/layout.
 // Logical 0..47 use the original matrix cells; 48..53 use extension storage.
@@ -140,7 +157,11 @@ static void sync_shortcut(void) {
 
 // Versioned user word, independent of VIA's editable keymap storage.
 #ifdef MJI_WEB_VIAL
-#    define MJI_SETTINGS_MAGIC UINT32_C(0x4d320000)
+#    if MJI_MATO_DIRECT
+#        define MJI_SETTINGS_MAGIC UINT32_C(0x4d330000)
+#    else
+#        define MJI_SETTINGS_MAGIC UINT32_C(0x4d320000)
+#    endif
 #    define MJI_SETTINGS_MASK UINT32_C(0x3fff)
 #    define MJI_LAYOUT_SETTINGS (((uint32_t)web_en_layout << 3) | ((uint32_t)web_jp_layout << 8))
 #    define MJI_CHORD_SETTINGS ((uint32_t)!mejiro_first_up_chord_send << 13)
@@ -161,7 +182,7 @@ void eeconfig_init_user(void) {
 #ifdef MJI_WEB_VIAL
     eeconfig_update_kb(0); // Reset timing defaults with the other initial settings.
 #endif
-    eeconfig_update_user(MJI_SETTINGS_MAGIC | MJI_DEFAULT_JIS | UINT32_C(2) | ((uint32_t)MJI_DEFAULT_MEJIRO << 2) | MJI_DEFAULT_LAYOUT_SETTINGS);
+    eeconfig_update_user(MJI_SETTINGS_MAGIC | MJI_DEFAULT_JIS | (MJI_MATO_DIRECT ? UINT32_C(0) : UINT32_C(2)) | ((uint32_t)MJI_DEFAULT_MEJIRO << 2) | MJI_DEFAULT_LAYOUT_SETTINGS);
 }
 
 static uint8_t expand_mods(uint8_t mods) {
@@ -251,6 +272,7 @@ void mejiro_steno_tap(uint16_t code) {
         return;
     }
     mji_layout_config_t config = input.layout;
+    config.mato_shift_pairs = false; // Steno emissions already name their intended symbols.
     config.alt_enabled         = false;
     mji_stroke_t stroke        = mji_layout_resolve(&config, key, MJI_STENO, 0);
     uint8_t      saved         = get_mods();
@@ -303,7 +325,7 @@ static mji_binding_t lookup_callback(void *user, uint16_t logical, const mji_con
         uint8_t layer = c->layers[i];
         if (layer >= MJI_HOLD_OFFSET) continue;
         if (steno_mode && (c->mods & ~MOD_MASK_SHIFT) && layer == MJI_STENO) layer = MJI_QWERTY;
-        if (c->mods & MOD_MASK_SHIFT) {
+        if (!MJI_MATO_DIRECT && (c->mods & MOD_MASK_SHIFT)) {
             if (layer == MJI_QWERTY)
                 layer = MJI_SHIFTED;
             else if (layer == MJI_NUMBER)
@@ -358,6 +380,7 @@ static bool custom_action(uint16_t code, bool pressed) {
             }
             return true;
         case MJI_ALT:
+            if (MJI_MATO_DIRECT) return true; // Direct maps cannot be translated a second time.
             if (pressed) {
                 mji_layout_config_t config = input.layout;
                 config.alt_enabled         = !config.alt_enabled;
@@ -370,6 +393,14 @@ static bool custom_action(uint16_t code, bool pressed) {
                 mejiro_mode = !mejiro_mode;
                 switch_context();
                 save_settings();
+            }
+            return true;
+        case MJI_IME:
+            if (pressed) {
+                mji_layout_config_t config = input.layout;
+                config.language = config.language == MJI_JAPANESE ? MJI_ENGLISH : MJI_JAPANESE;
+                select_layout(&config);
+                tap_output(config.language == MJI_JAPANESE ? KC_LNG1 : KC_LNG2);
             }
             return true;
         case KC_LNG1:
@@ -455,6 +486,7 @@ void keyboard_post_init_user(void) {
     timing = web_load_timing();
 #endif
     ready              = mji_init(&input, physical_pairs, sizeof(physical_pairs) / sizeof(*physical_pairs), timing, MJI_QWERTY, cb, NULL);
+    input.mato_mode = MJI_MATO_DIRECT;
     if (ready) {
         mji_layout_config_t config = {.maps = {MJI_LAYOUT_MAP(MJI_ENGLISH_LAYOUT), MJI_LAYOUT_MAP(MJI_JAPANESE_LAYOUT)}, .alt_layers = (UINT32_C(1) << MJI_QWERTY) | (UINT32_C(1) << MJI_SHIFTED), .literal_symbol_layers = (UINT32_C(1) << MJI_SHIFTED) | (UINT32_C(1) << MJI_NUMBER_SHIFTED), .language = MJI_ENGLISH, .alt_enabled = true, .jis_host = MJI_DEFAULT_JIS};
 #ifdef MJI_WEB_VIAL
@@ -463,6 +495,12 @@ void keyboard_post_init_user(void) {
 #endif
         config.jis_host = (settings & 1) != 0;
         config.alt_enabled = (settings & 2) != 0;
+#if MJI_MATO_DIRECT
+        config.alt_enabled = false;
+        config.alt_layers = 0;
+        config.literal_symbol_layers = 0;
+        config.mato_shift_pairs = true;
+#endif
         ready                      = select_layout(&config);
     }
     default_layer_set((layer_state_t)1 << MJI_QWERTY);

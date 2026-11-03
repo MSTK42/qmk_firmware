@@ -5,6 +5,8 @@ build=$(mktemp -d /tmp/mejiro-input-test.XXXXXX)
 trap 'rm -rf "$build"' EXIT HUP INT TERM
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -pedantic -g ${CFLAGS:-} ../mejiro_input.c ../mejiro_layout.c test_input.c -o "$build/test_input"
 "$build/test_input"
+"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -pedantic -g ${CFLAGS:-} ../mejiro_input.c ../mejiro_layout.c test_mato_input.c -o "$build/test_mato_input"
+"$build/test_mato_input"
 qmk_root=../../../..
 for profile in jp_default en_default; do
     profile_flags=
@@ -17,6 +19,8 @@ for profile in jp_default en_default; do
 done
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -pedantic -g ${CFLAGS:-} ../mejiro_layout.c test_layout.c -o "$build/test_layout"
 "$build/test_layout"
+"${CC:-cc}" -std=c11 -Wall -Wextra -Werror -pedantic -g ${CFLAGS:-} ../mejiro_layout.c test_mato_layout.c -o "$build/test_mato_layout"
+"$build/test_mato_layout"
 "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -pedantic -g ${CFLAGS:-} test_catalog.c -o "$build/test_catalog"
 "$build/test_catalog"
 host_target=$(rustc -vV | sed -n 's/^host: //p')
